@@ -44,14 +44,6 @@ test_results_raw.txt
 !package.json
 !tsconfig.json
 
-# Local gemini/AI data
-.gemini/
-.agents/
-.agent/
-_agents/
-_agent/
-brain/
-
 # Testing
 .pytest_cache/
 .coverage
