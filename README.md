@@ -1,6 +1,6 @@
 # 🏥 MedKit: A Unified Platform for Medical Data APIs
 
-[![CI Status](https://img.shields.io/badge/CI-passing-success)](https://github.com/yourname/medkit/actions)
+[![CI Status](https://img.shields.io/badge/CI-passing-success)](https://github.com/interestng/medkit/actions)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
@@ -68,14 +68,14 @@ MedKit abstracts complexity through a multi-layered provider system:
 
 ## 🚀 Core Platform Features
 
-- **🧠 Clinical Interaction Engine**: High-fidelity detection of drug-drug contraindications via `med.interactions()`.
-- **🔌 Capability-Based Routing**: Intelligent query routing based on provider capabilities.
-- **🔗 Actionable Research**: Native URL generation for all papers and trials with direct CLI opening (`--open`).
-- **🧠 Natural Language Engine (`med.ask()`)**: Query medical data in plain English with automated query sanitization.
-- **🕸️ Medical Relationship Graph (`med.graph()`)**: Visualize connections with descriptive, title-based node labeling.
-- **📊 Provider Health Dashboard**: Real-time status and latency tracking via `medkit status`.
-- **📥 Research Data Export**: Native CSV and JSON export for medical researchers.
-- **🔄 Async & Sync Support**: High-concurrency support with `AsyncMedKit`.
+- **Clinical Interaction Engine**: High-fidelity detection of drug-drug contraindications via `med.interactions()`.
+- **Capability-Based Routing**: Intelligent query routing based on provider capabilities.
+- **Actionable Research**: Native URL generation for all papers and trials with direct CLI opening (`--open`).
+- **Natural Language Engine (`med.ask()`)**: Query medical data in plain English with automated query sanitization.
+- **Medical Relationship Graph (`med.graph()`)**: Visualize connections with descriptive, title-based node labeling.
+- **Provider Health Dashboard**: Real-time status and latency tracking via `medkit status`.
+- **Research Data Export**: Native CSV and JSON export for medical researchers.
+- **Async & Sync Support**: High-concurrency support with `AsyncMedKit`.
 
 ---
 
