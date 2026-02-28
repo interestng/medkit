@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "A unified Python SDK for public medical APIs (OpenFDA, PubMed, ClinicalTrials.gov)"
 readme = "README.md"
 authors = [
-    { name = "Open Source Developer", email = "dev@example.com" }
+    { name = "interestng", email = "dev@interestng.com" }
 ]
 requires-python = ">=3.9"
 dependencies = [
