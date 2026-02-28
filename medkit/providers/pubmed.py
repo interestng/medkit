@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -22,7 +22,7 @@ class PubMedProvider(BaseProvider):
 
     def get_sync(self, item_id: str) -> ResearchPaper:
         try:
-            response = self.http_client.get(
+            response = cast(httpx.Client, self.http_client).get(
                 self.SUMMARY_URL,
                 params={"db": "pubmed", "id": item_id, "retmode": "json"},
             )
@@ -36,7 +36,7 @@ class PubMedProvider(BaseProvider):
 
     async def get(self, item_id: str) -> ResearchPaper:
         try:
-            response = await self.http_client.get(
+            response = await cast(httpx.AsyncClient, self.http_client).get(
                 self.SUMMARY_URL,
                 params={"db": "pubmed", "id": item_id, "retmode": "json"},
             )
@@ -51,7 +51,7 @@ class PubMedProvider(BaseProvider):
     def search_sync(self, query: str, **kwargs) -> list[ResearchPaper]:
         limit = kwargs.get("limit", 10)
         try:
-            search_response = self.http_client.get(  # type: ignore
+            search_response = cast(httpx.Client, self.http_client).get(
                 self.SEARCH_URL,
                 params={
                     "db": "pubmed",
@@ -66,7 +66,7 @@ class PubMedProvider(BaseProvider):
             if not pmids:
                 return []
 
-            summary_response = self.http_client.get(  # type: ignore
+            summary_response = cast(httpx.Client, self.http_client).get(
                 self.SUMMARY_URL,
                 params={"db": "pubmed", "id": ",".join(pmids), "retmode": "json"},
             )
@@ -78,7 +78,7 @@ class PubMedProvider(BaseProvider):
     async def search(self, query: str, **kwargs) -> list[ResearchPaper]:
         limit = kwargs.get("limit", 10)
         try:
-            search_response = await self.http_client.get(  # type: ignore
+            search_response = await cast(httpx.AsyncClient, self.http_client).get(
                 self.SEARCH_URL,
                 params={
                     "db": "pubmed",
@@ -93,7 +93,7 @@ class PubMedProvider(BaseProvider):
             if not pmids:
                 return []
 
-            summary_response = await self.http_client.get(  # type: ignore
+            summary_response = await cast(httpx.AsyncClient, self.http_client).get(
                 self.SUMMARY_URL,
                 params={"db": "pubmed", "id": ",".join(pmids), "retmode": "json"},
             )

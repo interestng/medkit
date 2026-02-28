@@ -124,7 +124,7 @@ class AsyncMedKit:
             trials = []
 
         latency = time.time() - start_time
-        metadata = SearchMetadata(query_time=latency, sources=sources)
+        metadata = SearchMetadata(query_time=latency, sources=sources, cached=False)
 
         return SearchResults(
             drugs=drugs, papers=papers, trials=trials, metadata=metadata
@@ -328,7 +328,7 @@ class MedKit:
             trials = []
 
         latency = time.time() - start_time
-        metadata = SearchMetadata(query_time=latency, sources=sources)
+        metadata = SearchMetadata(query_time=latency, sources=sources, cached=False)
 
         return SearchResults(
             drugs=drugs, papers=papers, trials=trials, metadata=metadata

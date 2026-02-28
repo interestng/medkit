@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -28,7 +28,7 @@ class ClinicalTrialsProvider(BaseProvider):
     def get_sync(self, item_id: str) -> ClinicalTrial:
         url = f"{self.BASE_URL}/{item_id}"
         try:
-            response = self.http_client.get(url, headers=self._get_headers())
+            response = cast(httpx.Client, self.http_client).get(url, headers=self._get_headers())
             response.raise_for_status()
             # Wrap in studies list for parsing
             data = {"studies": [response.json()]}
@@ -40,7 +40,7 @@ class ClinicalTrialsProvider(BaseProvider):
     async def get(self, item_id: str) -> ClinicalTrial:
         url = f"{self.BASE_URL}/{item_id}"
         try:
-            response = await self.http_client.get(url, headers=self._get_headers())
+            response = await cast(httpx.AsyncClient, self.http_client).get(url, headers=self._get_headers())
             response.raise_for_status()
             data = {"studies": [response.json()]}
             results = self._parse_response(data)
@@ -64,12 +64,12 @@ class ClinicalTrialsProvider(BaseProvider):
         recruiting = kwargs.get("recruiting")
         params = {"query.cond": query, "pageSize": limit}
         try:
-            response = self.http_client.get(
+            response = cast(httpx.Client, self.http_client).get(
                 self.BASE_URL,
                 params=params,
                 headers=self._get_headers(),
                 follow_redirects=True,
-            )  # type: ignore
+            )
             response.raise_for_status()
             return self._parse_response(response.json(), recruiting)
         except httpx.HTTPError as e:
@@ -80,12 +80,12 @@ class ClinicalTrialsProvider(BaseProvider):
         recruiting = kwargs.get("recruiting")
         params = {"query.cond": query, "pageSize": limit}
         try:
-            response = await self.http_client.get(
+            response = await cast(httpx.AsyncClient, self.http_client).get(
                 self.BASE_URL,
                 params=params,
                 headers=self._get_headers(),
                 follow_redirects=True,
-            )  # type: ignore
+            )
             response.raise_for_status()
             return self._parse_response(response.json(), recruiting)
         except httpx.HTTPError as e:

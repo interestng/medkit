@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -28,7 +28,7 @@ class OpenFDAProvider(BaseProvider):
     def search_sync(self, query: str, **kwargs) -> DrugInfo:
         search_query = f'openfda.brand_name:"{query}" openfda.generic_name:"{query}"'
         try:
-            response = self.http_client.get(  # type: ignore
+            response = cast(httpx.Client, self.http_client).get(
                 self.BASE_URL, params={"search": search_query, "limit": 1}
             )
             response.raise_for_status()
@@ -45,7 +45,7 @@ class OpenFDAProvider(BaseProvider):
     async def search(self, query: str, **kwargs) -> DrugInfo:
         search_query = f'openfda.brand_name:"{query}" openfda.generic_name:"{query}"'
         try:
-            response = await self.http_client.get(  # type: ignore
+            response = await cast(httpx.AsyncClient, self.http_client).get(
                 self.BASE_URL, params={"search": search_query, "limit": 1}
             )
             response.raise_for_status()
