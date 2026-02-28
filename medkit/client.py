@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
 import httpx
 
@@ -23,7 +23,7 @@ from .providers.base import Provider
 from .providers.clinicaltrials import ClinicalTrialsProvider
 from .providers.openfda import OpenFDAProvider
 from .providers.pubmed import PubMedProvider
-from .utils import RateLimiter, cache_response, paginate
+from .utils import RateLimiter, cache_response
 
 
 class AsyncMedKit:
@@ -206,7 +206,9 @@ class AsyncMedKit:
 
     async def interactions(self, drugs: list[str]) -> Any:
         """Check for drug interactions asynchronously using OpenFDA labels."""
-        return await InteractionEngine.check(drugs, self._providers["openfda"])
+        from .providers.openfda import OpenFDAProvider
+        provider = cast(OpenFDAProvider, self._providers["openfda"])
+        return await InteractionEngine.check(drugs, provider)
 
     async def ask(self, question: str) -> Any:
         """Natural language router."""
@@ -398,7 +400,9 @@ class MedKit:
 
     def interactions(self, drugs: list[str]) -> Any:
         """Check for drug interactions using OpenFDA labels."""
-        return InteractionEngine.check_sync(drugs, self._providers["openfda"])
+        from .providers.openfda import OpenFDAProvider
+        provider = cast(OpenFDAProvider, self._providers["openfda"])
+        return InteractionEngine.check_sync(drugs, provider)
 
     def ask(self, question: str) -> Any:
         """Natural language router."""

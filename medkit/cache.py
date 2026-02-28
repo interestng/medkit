@@ -3,25 +3,25 @@ from __future__ import annotations
 import hashlib
 import pickle
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
 
 class BaseCache:
     def get(self, key: str) -> Any:
         raise NotImplementedError
 
-    def set(self, key: str, value: Any):
+    def set(self, key: str, value: Any) -> None:
         raise NotImplementedError
 
 
 class MemoryCache(BaseCache):
-    def __init__(self):
-        self._data: dict[str, Any] = {}
+    def __init__(self) -> None:
+        self._data: Dict[str, Any] = {}
 
     def get(self, key: str) -> Any:
         return self._data.get(key)
 
-    def set(self, key: str, value: Any):
+    def set(self, key: str, value: Any) -> None:
         self._data[key] = value
 
 
@@ -44,7 +44,7 @@ class DiskCache(BaseCache):
                 return None
         return None
 
-    def set(self, key: str, value: Any):
+    def set(self, key: str, value: Any) -> None:
         path = self._get_path(key)
         with open(path, "wb") as f:
             pickle.dump(value, f)

@@ -29,7 +29,8 @@ class ClinicalTrialsProvider(BaseProvider):
             req = urllib.request.Request(url, headers=self._get_headers())
             with urllib.request.urlopen(req) as response:
                 data = json.loads(response.read().decode())
-                # Wrap in studies list for parsing (v2 single study returns study object)
+                # Wrap in studies list for parsing
+                # (v2 single study returns study object)
                 results = self._parse_response({"studies": [data]})
                 return results[0]
         except Exception as e:
@@ -53,7 +54,10 @@ class ClinicalTrialsProvider(BaseProvider):
             "Accept-Language": "en-US,en;q=0.9",
             "Referer": "https://www.clinicaltrials.gov/",
             "Cache-Control": "no-cache",
-            "Sec-Ch-Ua": '"Chromium";v="120", "Not(A:Brand)";v="24", "Google Chrome";v="120"',
+            "Sec-Ch-Ua": (
+                '"Chromium";v="120", "Not(A:Brand)";v="24", '
+                '"Google Chrome";v="120"'
+            ),
             "Sec-Ch-Ua-Mobile": "?0",
             "Sec-Ch-Ua-Platform": '"Windows"',
             "Sec-Fetch-Dest": "empty",

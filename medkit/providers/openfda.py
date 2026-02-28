@@ -98,13 +98,20 @@ class OpenFDAProvider(BaseProvider):
                     if response.status_code == 200:
                         data = response.json()
                         result = data["results"][0]
-                        evidence = result.get("drug_interactions", ["No specific text found."])[0]
-                        short_evidence = evidence[:500] + "..." if len(evidence) > 500 else evidence
+                        evidence = result.get(
+                            "drug_interactions", ["No specific text found."]
+                        )[0]
+                        short_evidence = (
+                            evidence[:500] + "..." if len(evidence) > 500 else evidence
+                        )
                         
                         interactions.append({
                             "drugs": [d1, d2],
                             "severity": "Discussed in Label",
-                            "risk": f"Potential interaction found in FDA label for {d1}/{d2}.",
+                            "risk": (
+                                f"Potential interaction found in FDA label for "
+                                f"{d1}/{d2}."
+                            ),
                             "evidence": short_evidence
                         })
                 except Exception:
@@ -128,13 +135,20 @@ class OpenFDAProvider(BaseProvider):
                     if response.status_code == 200:
                         data = response.json()
                         result = data["results"][0]
-                        evidence = result.get("drug_interactions", ["No specific text found."])[0]
-                        short_evidence = evidence[:500] + "..." if len(evidence) > 500 else evidence
+                        evidence = result.get(
+                            "drug_interactions", ["No specific text found."]
+                        )[0]
+                        short_evidence = (
+                            evidence[:500] + "..." if len(evidence) > 500 else evidence
+                        )
                         
                         interactions.append({
                             "drugs": [d1, d2],
                             "severity": "Discussed in Label",
-                            "risk": f"Potential interaction found in FDA label for {d1}/{d2}.",
+                            "risk": (
+                                f"Potential interaction found in FDA label for "
+                                f"{d1}/{d2}."
+                            ),
                             "evidence": short_evidence
                         })
                 except Exception:

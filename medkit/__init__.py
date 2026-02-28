@@ -19,10 +19,10 @@ from .models import (
     ConditionSummary,
     DrugExplanation,
     DrugInfo,
+    InteractionWarning,
     ResearchPaper,
     SearchMetadata,
     SearchResults,
-    InteractionWarning,
 )
 
 __version__ = "0.1.0"
