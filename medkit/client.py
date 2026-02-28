@@ -49,7 +49,7 @@ class AsyncMedKit:
         if os.getenv("MEDKIT_TESTING"):
             self.cache: Any = MemoryCache()
         else:
-            self.cache: Any = DiskCache()
+            self.cache = DiskCache()
 
         # Register default providers
         self.register_provider(OpenFDAProvider(self._http_client))
@@ -301,7 +301,7 @@ class MedKit:
         if os.getenv("MEDKIT_TESTING"):
             self.cache: Any = MemoryCache()
         else:
-            self.cache: Any = DiskCache()
+            self.cache = DiskCache()
 
         self.register_provider(OpenFDAProvider(self._http_client))
         self.register_provider(PubMedProvider(self._http_client))

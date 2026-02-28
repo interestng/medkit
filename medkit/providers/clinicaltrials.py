@@ -84,7 +84,9 @@ class ClinicalTrialsProvider(BaseProvider):
         # Run sync version in thread to bypass httpx-specific blocking
         import asyncio
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self.search_sync, query, **kwargs)
+        return await loop.run_in_executor(
+            None, lambda: self.search_sync(query, **kwargs)
+        )
 
     def _parse_response(
         self, data: dict[str, Any], recruiting: bool | None = None

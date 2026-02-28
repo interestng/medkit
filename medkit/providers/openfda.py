@@ -93,8 +93,10 @@ class OpenFDAProvider(BaseProvider):
                 # Using unquoted search for the second drug to allow 
                 # partial/text matches
                 queries = [
-                    f'(openfda.brand_name:"{d1}" OR openfda.generic_name:"{d1}") AND {d2}',
-                    f'(openfda.brand_name:"{d2}" OR openfda.generic_name:"{d2}") AND {d1}'
+                    f'(openfda.brand_name:"{d1}" OR '
+                    f'openfda.generic_name:"{d1}") AND {d2}',
+                    f'(openfda.brand_name:"{d2}" OR '
+                    f'openfda.generic_name:"{d2}") AND {d1}'
                 ]
                 for q in queries:
                     try:
@@ -106,9 +108,11 @@ class OpenFDAProvider(BaseProvider):
                             result = data["results"][0]
                             # Try to get specific interaction text, fallback to warnings
                             evidence = result.get("drug_interactions", [""])[0] or \
-                                      result.get("warnings", ["No specific text found."])[0]
+                                      result.get("warnings", 
+                                                 ["No specific text found."])[0]
                             short_evidence = (
-                                evidence[:500] + "..." if len(evidence) > 500 else evidence
+                                evidence[:500] + "..." \
+                                if len(evidence) > 500 else evidence
                             )
                             
                             interactions.append({
@@ -135,8 +139,10 @@ class OpenFDAProvider(BaseProvider):
             for j in range(i + 1, len(drugs)):
                 d1, d2 = drugs[i], drugs[j]
                 queries = [
-                    f'(openfda.brand_name:"{d1}" OR openfda.generic_name:"{d1}") AND {d2}',
-                    f'(openfda.brand_name:"{d2}" OR openfda.generic_name:"{d2}") AND {d1}'
+                    f'(openfda.brand_name:"{d1}" OR '
+                    f'openfda.generic_name:"{d1}") AND {d2}',
+                    f'(openfda.brand_name:"{d2}" OR '
+                    f'openfda.generic_name:"{d2}") AND {d1}'
                 ]
                 for q in queries:
                     try:
@@ -147,9 +153,11 @@ class OpenFDAProvider(BaseProvider):
                             data = response.json()
                             result = data["results"][0]
                             evidence = result.get("drug_interactions", [""])[0] or \
-                                      result.get("warnings", ["No specific text found."])[0]
+                                      result.get("warnings", 
+                                                 ["No specific text found."])[0]
                             short_evidence = (
-                                evidence[:500] + "..." if len(evidence) > 500 else evidence
+                                evidence[:500] + "..." \
+                                if len(evidence) > 500 else evidence
                             )
                             
                             interactions.append({
