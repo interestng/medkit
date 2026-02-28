@@ -28,7 +28,9 @@ class ClinicalTrialsProvider(BaseProvider):
     def get_sync(self, item_id: str) -> ClinicalTrial:
         url = f"{self.BASE_URL}/{item_id}"
         try:
-            response = cast(httpx.Client, self.http_client).get(url, headers=self._get_headers())
+            response = cast(httpx.Client, self.http_client).get(
+                url, headers=self._get_headers()
+            )
             response.raise_for_status()
             # Wrap in studies list for parsing
             data = {"studies": [response.json()]}
@@ -40,7 +42,9 @@ class ClinicalTrialsProvider(BaseProvider):
     async def get(self, item_id: str) -> ClinicalTrial:
         url = f"{self.BASE_URL}/{item_id}"
         try:
-            response = await cast(httpx.AsyncClient, self.http_client).get(url, headers=self._get_headers())
+            response = await cast(httpx.AsyncClient, self.http_client).get(
+                url, headers=self._get_headers()
+            )
             response.raise_for_status()
             data = {"studies": [response.json()]}
             results = self._parse_response(data)
