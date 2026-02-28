@@ -6,7 +6,7 @@
 
 MedKit is a high-performance, unified SDK that transforms fragmented medical data APIs into a single, programmable platform. It provides a clean interface for **OpenFDA**, **PubMed**, and **ClinicalTrials.gov**, augmented with a clinical intelligence layer and relationship mapping.
 
-![MedKit CLI Demo](docs/images/cli_demo.png)
+![MedKit CLI Demo](demo.gif)
 
 ## ✨ Quick Example
 

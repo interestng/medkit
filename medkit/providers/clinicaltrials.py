@@ -1,4 +1,5 @@
 import json
+import urllib.parse
 import urllib.request
 from typing import Any
 
@@ -24,7 +25,8 @@ class ClinicalTrialsProvider(BaseProvider):
         return ["trials"]
 
     def get_sync(self, item_id: str) -> ClinicalTrial:
-        url = f"{self.BASE_URL}/{item_id}"
+        encoded_id = urllib.parse.quote(item_id)
+        url = f"{self.BASE_URL}/{encoded_id}"
         try:
             req = urllib.request.Request(url, headers=self._get_headers())
             with urllib.request.urlopen(req) as response:
@@ -68,7 +70,8 @@ class ClinicalTrialsProvider(BaseProvider):
     def search_sync(self, query: str, **kwargs) -> list[ClinicalTrial]:
         limit = kwargs.get("limit", 10)
         recruiting = kwargs.get("recruiting")
-        url = f"{self.BASE_URL}?query.cond={query}&pageSize={limit}"
+        encoded_query = urllib.parse.quote(query)
+        url = f"{self.BASE_URL}?query.cond={encoded_query}&pageSize={limit}"
         try:
             req = urllib.request.Request(url, headers=self._get_headers())
             with urllib.request.urlopen(req) as response:
