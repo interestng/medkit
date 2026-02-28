@@ -4,7 +4,7 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-MedKit is a high-performance, unified SDK that transforms fragmented medical data APIs into a single, programmable platform. It provides a clean interface for **OpenFDA**, **PubMed**, and **ClinicalTrials.gov**, augmented with a clinical intelligence layer and relationship mapping.
+MedKit's goal is to be a high-performance, unified SDK that transforms fragmented medical data APIs into a single, programmable platform. It provides a clean interface for **OpenFDA**, **PubMed**, and **ClinicalTrials.gov**, augmented with a clinical intelligence layer and relationship mapping. A lot of functionality may still be at a POC Layer, but a lot is working right now as well. Please contact me through an issue if you see anything you want implemented soon.
 
 ![MedKit CLI Demo](demo.gif)
 
