@@ -17,7 +17,7 @@ class OpenFDAProvider(BaseProvider):
         self.http_client = http_client
 
     def capabilities(self) -> list[str]:
-        return ["drugs"]
+        return ["drugs", "interactions"]
 
     def get_sync(self, item_id: str) -> DrugInfo:
         return self.search_sync(item_id)
@@ -26,7 +26,7 @@ class OpenFDAProvider(BaseProvider):
         return await self.search(item_id)
 
     def search_sync(self, query: str, **kwargs) -> DrugInfo:
-        search_query = f'openfda.brand_name:"{query}" openfda.generic_name:"{query}"'
+        search_query = f'openfda.brand_name:"{query}" OR openfda.generic_name:"{query}"'
         try:
             response = cast(httpx.Client, self.http_client).get(
                 self.BASE_URL, params={"search": search_query, "limit": 1}
@@ -43,7 +43,7 @@ class OpenFDAProvider(BaseProvider):
         return self._parse_response(data, query)
 
     async def search(self, query: str, **kwargs) -> DrugInfo:
-        search_query = f'openfda.brand_name:"{query}" openfda.generic_name:"{query}"'
+        search_query = f'openfda.brand_name:"{query}" OR openfda.generic_name:"{query}"'
         try:
             response = await cast(httpx.AsyncClient, self.http_client).get(
                 self.BASE_URL, params={"search": search_query, "limit": 1}
@@ -78,3 +78,65 @@ class OpenFDAProvider(BaseProvider):
             warnings=warnings_list,
             manufacturer=manufacturer,
         )
+
+    async def check_interactions(self, drugs: list[str]) -> list[dict[str, Any]]:
+        """Check for interactions between drugs using label data."""
+        if len(drugs) < 2:
+            return []
+
+        # Search for labels where interactions mention both drugs
+        # We'll check the first drug against the others to find evidence
+        interactions = []
+        for i in range(len(drugs)):
+            for j in range(i + 1, len(drugs)):
+                d1, d2 = drugs[i], drugs[j]
+                query = f'drug_interactions:"{d1}" AND drug_interactions:"{d2}"'
+                try:
+                    response = await cast(httpx.AsyncClient, self.http_client).get(
+                        self.BASE_URL, params={"search": query, "limit": 1}
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        result = data["results"][0]
+                        evidence = result.get("drug_interactions", ["No specific text found."])[0]
+                        short_evidence = evidence[:500] + "..." if len(evidence) > 500 else evidence
+                        
+                        interactions.append({
+                            "drugs": [d1, d2],
+                            "severity": "Discussed in Label",
+                            "risk": f"Potential interaction found in FDA label for {d1}/{d2}.",
+                            "evidence": short_evidence
+                        })
+                except Exception:
+                    continue
+        return interactions
+
+    def check_interactions_sync(self, drugs: list[str]) -> list[dict[str, Any]]:
+        """Synchronous version of interaction check."""
+        if len(drugs) < 2:
+            return []
+
+        interactions = []
+        for i in range(len(drugs)):
+            for j in range(i + 1, len(drugs)):
+                d1, d2 = drugs[i], drugs[j]
+                query = f'drug_interactions:"{d1}" AND drug_interactions:"{d2}"'
+                try:
+                    response = cast(httpx.Client, self.http_client).get(
+                        self.BASE_URL, params={"search": query, "limit": 1}
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        result = data["results"][0]
+                        evidence = result.get("drug_interactions", ["No specific text found."])[0]
+                        short_evidence = evidence[:500] + "..." if len(evidence) > 500 else evidence
+                        
+                        interactions.append({
+                            "drugs": [d1, d2],
+                            "severity": "Discussed in Label",
+                            "risk": f"Potential interaction found in FDA label for {d1}/{d2}.",
+                            "evidence": short_evidence
+                        })
+                except Exception:
+                    continue
+        return interactions

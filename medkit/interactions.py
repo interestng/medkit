@@ -1,68 +1,63 @@
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Any, Dict, List, TYPE_CHECKING
+from .models import InteractionWarning
 
-from pydantic import BaseModel
-
-
-class InteractionWarning(BaseModel):
-    severity: str  # High, Moderate, Low
-    risk: str
-    evidence: str
+if TYPE_CHECKING:
+    from .providers.openfda import OpenFDAProvider
 
 
 class InteractionEngine:
     """
-    A rule-based engine for detecting drug-drug interactions.
+    A dynamic engine for detecting drug-drug interactions using OpenFDA labels.
     """
 
-    # Simple rule database for v1.1
-    RULES: Dict[str, Dict[str, InteractionWarning]] = {
-        "aspirin": {
-            "ibuprofen": InteractionWarning(
-                severity="Moderate",
-                risk="Increased bleeding risk and decreased aspirin effectiveness.",
-                evidence=(
-                    "Multiple clinical studies (e.g., FDA labels, "
-                    "PubMed meta-analysis)."
-                ),
-            ),
-            "warfarin": InteractionWarning(
-                severity="High",
-                risk="Significantly increased risk of severe bleeding.",
-                evidence="Major clinical contraindication.",
-            ),
-        },
-        "ibuprofen": {
-            "naproxen": InteractionWarning(
-                severity="Moderate",
-                risk="Increased risk of gastrointestinal side effects.",
-                evidence="Pharmacological data.",
+    @classmethod
+    async def check(
+        cls, drugs: List[str], provider: OpenFDAProvider
+    ) -> List[Dict[str, Any]]:
+        """Check for interactions between a list of drugs using live FDA data."""
+        if not drugs or len(drugs) < 2:
+            return []
+
+        raw_interactions = await provider.check_interactions(drugs)
+        
+        warnings = []
+        for item in raw_interactions:
+            warning = InteractionWarning(
+                severity=item.get("severity", "N/A"),
+                risk=item.get("risk", "Potential interaction detected."),
+                evidence=item.get("evidence", "Source: OpenFDA Labels")
             )
-        },
-        "metformin": {
-            "contrast": InteractionWarning(
-                severity="High",
-                risk="Risk of lactic acidosis if iodine contrast is used.",
-                evidence="Standard hospital protocol and FDA warning.",
-            )
-        },
-    }
+            
+            warnings.append({
+                "drugs": item["drugs"],
+                "warning": warning
+            })
+            
+        return warnings
 
     @classmethod
-    def check(cls, drugs: List[str]) -> List[dict]:
-        """Check for interactions between a list of drugs."""
+    def check_sync(
+        cls, drugs: List[str], provider: OpenFDAProvider
+    ) -> List[Dict[str, Any]]:
+        """Synchronous version of interaction check."""
+        if not drugs or len(drugs) < 2:
+            return []
+
+        raw_interactions = provider.check_interactions_sync(drugs)
+        
         warnings = []
-        drugs_lower = [d.lower() for d in drugs]
-
-        for i in range(len(drugs_lower)):
-            for j in range(i + 1, len(drugs_lower)):
-                d1 = drugs_lower[i]
-                d2 = drugs_lower[j]
-
-                # Check d1 against d2 and vice versa
-                warn = cls.RULES.get(d1, {}).get(d2) or cls.RULES.get(d2, {}).get(d1)
-
-                if warn:
-                    warnings.append({"drugs": [drugs[i], drugs[j]], "warning": warn})
+        for item in raw_interactions:
+            warning = InteractionWarning(
+                severity=item.get("severity", "N/A"),
+                risk=item.get("risk", "Potential interaction detected."),
+                evidence=item.get("evidence", "Source: OpenFDA Labels")
+            )
+            
+            warnings.append({
+                "drugs": item["drugs"],
+                "warning": warning
+            })
+            
         return warnings

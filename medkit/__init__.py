@@ -22,6 +22,7 @@ from .models import (
     ResearchPaper,
     SearchMetadata,
     SearchResults,
+    InteractionWarning,
 )
 
 __version__ = "0.1.0"
@@ -45,4 +46,5 @@ __all__ = [
     "RateLimitError",
     "NotFoundError",
     "PluginError",
+    "InteractionWarning",
 ]

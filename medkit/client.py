@@ -23,7 +23,7 @@ from .providers.base import Provider
 from .providers.clinicaltrials import ClinicalTrialsProvider
 from .providers.openfda import OpenFDAProvider
 from .providers.pubmed import PubMedProvider
-from .utils import RateLimiter, cache_response
+from .utils import RateLimiter, cache_response, paginate
 
 
 class AsyncMedKit:
@@ -37,13 +37,13 @@ class AsyncMedKit:
         self.debug = debug
         self._http_client = httpx.AsyncClient(
             timeout=timeout,
-            http2=True,
+            http2=False,
             limits=httpx.Limits(
                 max_connections=max_connections, max_keepalive_connections=20
             ),
         )
         self._providers: Dict[str, Provider] = {}
-
+ 
         # Register default providers
         self.register_provider(OpenFDAProvider(self._http_client))
         self.register_provider(PubMedProvider(self._http_client))
@@ -205,8 +205,8 @@ class AsyncMedKit:
             Exporter.to_json(data, path)
 
     async def interactions(self, drugs: list[str]) -> Any:
-        """Check for drug interactions asynchronously."""
-        return InteractionEngine.check(drugs)
+        """Check for drug interactions asynchronously using OpenFDA labels."""
+        return await InteractionEngine.check(drugs, self._providers["openfda"])
 
     async def ask(self, question: str) -> Any:
         """Natural language router."""
@@ -242,14 +242,13 @@ class MedKit:
         self.debug = debug
         self._http_client = httpx.Client(
             timeout=timeout,
-            http2=True,
+            http2=False,
             limits=httpx.Limits(
                 max_connections=max_connections, max_keepalive_connections=20
             ),
         )
         self._providers: Dict[str, Provider] = {}
-
-        # Register default providers
+ 
         self.register_provider(OpenFDAProvider(self._http_client))
         self.register_provider(PubMedProvider(self._http_client))
         self.register_provider(ClinicalTrialsProvider(self._http_client))
@@ -398,8 +397,8 @@ class MedKit:
             Exporter.to_json(data, path)
 
     def interactions(self, drugs: list[str]) -> Any:
-        """Check for drug interactions."""
-        return InteractionEngine.check(drugs)
+        """Check for drug interactions using OpenFDA labels."""
+        return InteractionEngine.check_sync(drugs, self._providers["openfda"])
 
     def ask(self, question: str) -> Any:
         """Natural language router."""

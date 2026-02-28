@@ -13,11 +13,13 @@ from rich.tree import Tree
 from medkit import (
     ClinicalTrial,
     ConditionSummary,
+    DrugExplanation,
     MedKit,
     MedKitError,
     ResearchPaper,
     SearchResults,
 )
+from medkit.ask_engine import AskEngine
 
 app = typer.Typer(help="MedKit - Unified Medical API SDK")
 console = Console()
@@ -270,21 +272,30 @@ def explain(name: str):
 
 
 @app.command()
-def ask(question: str):
+def ask(question: str, debug: bool = False):
     """
     Ask a medical question in plain English.
     """
     try:
+        if debug:
+            intent = AskEngine.route(question)
+            msg = "[bold yellow]DEBUG:[/bold yellow] Routing intent detected: "
+            console.print(f"{msg}[bold cyan]{intent}[/bold cyan]")
+
         with MedKit() as med:
             with console.status(
                 f"[bold blue]Processing question: '{question}'...[/bold blue]"
             ):
+                # We need the cleaned query for rendering
+                cleaned_q = AskEngine.clean_query(question)
                 res = med.ask(question)
 
             if isinstance(res, SearchResults):
                 _render_search_results(res, question)
             elif isinstance(res, ConditionSummary):
                 _render_summary(res)
+            elif isinstance(res, DrugExplanation):
+                _render_explanation(res, cleaned_q)
             elif isinstance(res, list) and res and isinstance(res[0], ResearchPaper):
                 _render_papers(res)
             elif isinstance(res, list) and res and isinstance(res[0], ClinicalTrial):

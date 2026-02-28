@@ -86,3 +86,8 @@ class ConditionSummary(BaseModel):
     trials: list[ClinicalTrial] = Field(
         default_factory=list, description="Key recruiting clinical trials."
     )
+
+class InteractionWarning(BaseModel):
+    severity: str = Field(..., description="Severity level.")
+    risk: str = Field(..., description="Risk description.")
+    evidence: str = Field(..., description="Evidence source.")
