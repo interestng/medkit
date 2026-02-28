@@ -92,7 +92,7 @@ MedKit currently integrates the following foundational medical databases:
 ## 📦 Installation
 
 ```bash
-pip install medkit
+pip install medkit-sdk
 ```
 
 ---
