@@ -44,4 +44,4 @@ target-version = "py39"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
-unfixable = ["F401"] # Keep unused imports in __init__.py if needed, but here we want to clean them. Actually, F401 is mostly good.
+fixable = ["ALL"]

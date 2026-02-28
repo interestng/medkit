@@ -59,7 +59,8 @@ class RateLimiter:
 def paginate(fetch_page: Callable[[int], List[Any]], max_pages: int = 5) -> List[Any]:
     """
     Helper function to paginate through API results.
-    `fetch_page` should be a function that takes a page index and returns a list of items.
+    `fetch_page` should be a function that takes a page index and returns a list
+    of items.
     Expects `fetch_page` to return an empty list when no more data is available.
     """
     results = []

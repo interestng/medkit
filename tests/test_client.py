@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from medkit.client import AsyncMedKit, MedKit
-from medkit.exceptions import NotFoundError, RateLimitError
 from medkit.models import ClinicalTrial, DrugInfo, ResearchPaper
 
 
@@ -106,7 +105,8 @@ async def test_async_search():
         med._providers["clinicaltrials"].search.return_value = []
 
         # Test search
-        # Note: we don't assert brand_name here because med.search() swallows drug errors if not found
+        # Note: we don't assert brand_name here because med.search() swallows drug
+        # errors if not found
         # but since we mocked it to return something, it should work.
         res = await med.search("aspirin")
         assert res.metadata is not None

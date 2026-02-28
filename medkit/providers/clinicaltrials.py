@@ -49,8 +49,13 @@ class ClinicalTrialsProvider(BaseProvider):
             raise APIError(f"ClinicalTrials.gov API error: {e}") from e
 
     def _get_headers(self) -> dict[str, str]:
+        ua = (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        )
         return {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "User-Agent": ua,
             "Accept": "application/json",
         }
 

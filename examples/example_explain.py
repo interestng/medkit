@@ -1,5 +1,6 @@
 """
-Example of using the MedKit SDK to get a comprehensive explanation of a condition (e.g. diabetes).
+Example of using the MedKit SDK to get a comprehensive explanation of a
+condition (e.g. diabetes).
 """
 
 import sys

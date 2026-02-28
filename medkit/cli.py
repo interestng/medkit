@@ -13,7 +13,6 @@ from rich.tree import Tree
 from medkit import (
     ClinicalTrial,
     ConditionSummary,
-    MedicalGraph,
     MedKit,
     MedKitError,
     ResearchPaper,
@@ -62,8 +61,10 @@ def interactions(drugs: list[str]):
     with MedKit() as med:
         warns = med.interactions(drugs)
         if not warns:
+            drugs_str = ", ".join(drugs)
             console.print(
-                f"[bold green]No known interactions found for: {', '.join(drugs)}[/bold green]"
+                f"[bold green]No known interactions found for: "
+                f"{drugs_str}[/bold green]"
             )
             return
 
@@ -220,9 +221,9 @@ def search(query: str, as_json: bool = False):
                 return
 
             if results.metadata:
-                console.print(
-                    f"\n[dim italic]Latency: {results.metadata.query_time:.2f}s | Sources: {', '.join(results.metadata.sources)}[/dim italic]"
-                )
+                l_msg = f"\n[dim italic]Latency: {results.metadata.query_time:.2f}s | "
+                s_msg = f"Sources: {', '.join(results.metadata.sources)}[/dim italic]"
+                console.print(l_msg + s_msg)
 
             _render_search_results(results, query)
 
@@ -255,9 +256,11 @@ def explain(name: str):
     """
     try:
         with MedKit() as med:
-            with console.status(
-                f"[bold blue]Fetching comprehensive data for {name}...[/bold blue]"
-            ):
+            status_msg = (
+                f"[bold blue]Fetching comprehensive data for "
+                f"{name}...[/bold blue]"
+            )
+            with console.status(status_msg):
                 explanation = med.explain_drug(name)
 
             _render_explanation(explanation, name)
@@ -336,9 +339,9 @@ def _render_search_results(results: SearchResults, query: str):
         console.print("No active recruiting trials found")
 
     if results.metadata:
-        console.print(
-            f"\n[dim italic]Latency: {results.metadata.query_time:.2f}s | Sources: {', '.join(results.metadata.sources)}[/dim italic]"
-        )
+        latency_msg = f"\n[dim italic]Latency: {results.metadata.query_time:.2f}s | "
+        sources_msg = f"Sources: {', '.join(results.metadata.sources)}[/dim italic]"
+        console.print(latency_msg + sources_msg)
 
 
 def _render_summary(s: ConditionSummary):

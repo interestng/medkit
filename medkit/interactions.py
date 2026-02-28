@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from pydantic import BaseModel
 
@@ -22,7 +22,10 @@ class InteractionEngine:
             "ibuprofen": InteractionWarning(
                 severity="Moderate",
                 risk="Increased bleeding risk and decreased aspirin effectiveness.",
-                evidence="Multiple clinical studies (e.g., FDA labels, PubMed meta-analysis).",
+                evidence=(
+                    "Multiple clinical studies (e.g., FDA labels, "
+                    "PubMed meta-analysis)."
+                ),
             ),
             "warfarin": InteractionWarning(
                 severity="High",

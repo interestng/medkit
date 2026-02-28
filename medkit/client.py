@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict
 
 import httpx
 
 from .ask_engine import AskEngine
 from .exceptions import MedKitError, PluginError
 from .exporter import Exporter
-from .graph import Edge, MedicalGraph, Node
+from .graph import MedicalGraph
 from .interactions import InteractionEngine
 from .models import (
     ClinicalTrial,
@@ -215,7 +215,8 @@ class AsyncMedKit:
 
         if self.debug:
             print(
-                f"[MedKit] Ask intent: {intent} for query: '{cleaned_q}' (from '{question}')"
+                f"[MedKit] Ask intent: {intent} for query: "
+                f"'{cleaned_q}' (from '{question}')"
             )
 
         if intent == "trials":
@@ -407,7 +408,8 @@ class MedKit:
 
         if self.debug:
             print(
-                f"[MedKit] Ask intent: {intent} for query: '{cleaned_q}' (from '{question}')"
+                f"[MedKit] Ask intent: {intent} for query: "
+                f"'{cleaned_q}' (from '{question}')"
             )
 
         if intent == "trials":
