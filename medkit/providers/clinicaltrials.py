@@ -111,6 +111,14 @@ class ClinicalTrialsProvider(BaseProvider):
             design = protocol.get("designModule", {})
             phases = design.get("phases", [])
 
+            # Extract interventions (drugs/therapies)
+            arms_int = protocol.get("armsInterventionsModule", {})
+            interventions = [
+                inter.get("name", "Unknown")
+                for inter in arms_int.get("interventions", [])
+                if inter.get("name")
+            ]
+
             contacts = protocol.get("contactsLocationsModule", {})
             locations_data = contacts.get("locations", [])
             locations = [
@@ -132,6 +140,7 @@ class ClinicalTrialsProvider(BaseProvider):
                     phase=phases,
                     location=locations,
                     eligibility=eligibility_criteria,
+                    interventions=interventions,
                 )
             )
         return trials

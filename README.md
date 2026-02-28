@@ -3,10 +3,16 @@
 [![CI Status](https://img.shields.io/badge/CI-passing-success)](https://github.com/interestng/medkit/actions)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/Version-1.4.0-orange)](https://pypi.org/project/medkit-sdk/)
 
-MedKit's goal is to be a high-performance, unified SDK that transforms fragmented medical data APIs into a single, programmable platform. It provides a clean interface for **OpenFDA**, **PubMed**, and **ClinicalTrials.gov**, augmented with a clinical intelligence layer and relationship mapping. A lot of functionality may still be at a POC Layer, but a lot is working right now as well. Please contact me through an issue if you see anything you want implemented soon.
+MedKit is a high-performance, unified SDK that transforms fragmented medical APIs into a single, programmable platform. It provides a clean interface for **OpenFDA**, **PubMed**, and **ClinicalTrials.gov**, augmented with a clinical intelligence layer and relationship mapping.
+
+> [!NOTE]
+> A lot of functionality may still be at a POC Layer, but the core engines are functional and being refined daily. Please contact us through an issue if you see anything you want implemented soon.
 
 ![MedKit CLI Demo](demo.gif)
+
+---
 
 ## ✨ Quick Example
 
@@ -14,14 +20,12 @@ MedKit's goal is to be a high-performance, unified SDK that transforms fragmente
 from medkit import MedKit
 
 with MedKit() as med:
-    # Query trials directly in plain English
-    results = med.ask("clinical trials for melanoma")
+    # Get a synthesized clinical conclusion
+    conclusion = med.conclude("pembrolizumab")
     
-    # Real Output Example:
-    # Trials:
-    # • Phase III Pembrolizumab Trial
-    # • Targeted BRAF Therapy Study
-    print(results.trials[0].title)
+    # Output: Highly-validated therapeutic landscape (Score: 1.00)
+    print(f"Summary: {conclusion.summary}")
+    print(f"Evidence Score: {conclusion.evidence_score}")
 ```
 
 ---
@@ -31,7 +35,7 @@ with MedKit() as med:
 | Feature | Without MedKit | With MedKit |
 | :--- | :--- | :--- |
 | **Integrations** | 3 separate APIs / SDKs | **One** unified client |
-| **Queries** | 3 fragmented formats | **One** schema & ask() engine |
+| **Clinical Verdicts**| Manual paper review | **med.conclude()** synthesis |
 | **Logic** | Manual data correlation | Native **knowledge graphs** |
 | **Speed** | Ad-hoc caching | Built-in **Disk/Memory Cache** |
 
@@ -53,7 +57,8 @@ MedKit abstracts complexity through a multi-layered provider system:
     │       Intelligence Layer      │
     │  ├─ Ask Engine (Routing)      │
     │  ├─ Graph Engine (Context)    │
-    │  └─ Interaction Engine        │
+    │  ├─ Interaction Engine        │
+    │  └─ Synthesis Engine (NEW)    │
     └─────────┬─────────────────────┘
               │
     ┌─────────┴─────────────────────┐
@@ -66,26 +71,15 @@ MedKit abstracts complexity through a multi-layered provider system:
 
 ---
 
-## 🚀 Core Platform Features
+## 🚀 Core Platform Features (v1.4.0)
 
-- **Clinical Interaction Engine**: High-fidelity detection of drug-drug contraindications via `med.interactions()`.
-- **Capability-Based Routing**: Intelligent query routing based on provider capabilities.
-- **Actionable Research**: Native URL generation for all papers and trials with direct CLI opening (`--open`).
-- **Natural Language Engine (`med.ask()`)**: Query medical data in plain English with automated query sanitization.
-- **Medical Relationship Graph (`med.graph()`)**: Visualize connections with descriptive, title-based node labeling.
-- **Provider Health Dashboard**: Real-time status and latency tracking via `medkit status`.
-- **Research Data Export**: Native CSV and JSON export for medical researchers.
-- **Async & Sync Support**: High-concurrency support with `AsyncMedKit`.
-
----
-
-## 📂 Data Providers
-
-MedKit currently integrates the following foundational medical databases:
-
-- **OpenFDA**: Official drug labels, safety information, and manufacturing data from the U.S. Food and Drug Administration.
-- **PubMed**: The world's largest biomedical research database, providing access to over 35 million citations.
-- **ClinicalTrials.gov**: A comprehensive database of privately and publicly funded clinical studies conducted around the world.
+- **Evidence Synthesis (`med.conclude()`)**: Automated clinical verdicts with evidence strength scoring (0.0–1.0) based on trial phases, approval status, and research volume. High-accuracy regex matching for Phase I-III trials.
+- **Precision Interaction Engine**: High-fidelity detection of drug-drug contraindications. Enhanced to catch cross-label mentions across brand and generic identifiers.
+- **Medical Relationship Graph (`med.graph()`)**: Visualize connections with title-based node labeling. Now correlates drugs directly to the clinical trials they intervene in.
+- **Natural Language Engine (`med.ask()`)**: Query medical data in plain English with automated capability-based routing.
+- **Research Data Export**: Native CSV and JSON export for medical researchers via CLI or SDK.
+- **Provider Health Dashboard**: Real-time status and latency tracking for all data providers.
+- **Unified Caching**: Robust Disk and Memory caching for high-performance repeat queries.
 
 ---
 
@@ -99,100 +93,67 @@ pip install medkit-sdk
 
 ## 📖 Quick Start
 
-### 1. Check Drug Interactions
+### 1. Synthesize Evidence
 ```python
-from medkit import MedKit
-
 with MedKit() as med:
-    # Check for potential risks
+    c = med.conclude("melanoma")
+    print(c.key_findings) # -> ["FDA data found", "Phase III trial validated", ...]
+```
+
+### 2. Check Drug Interactions
+```python
+with MedKit() as med:
     risks = med.interactions(["aspirin", "warfarin"])
     for risk in risks:
         print(f"Risk: {risk['warning'].risk} (Severity: {risk['warning'].severity})")
 ```
 
-### 2. High-Concurrency Search (Async)
-```python
-from medkit import AsyncMedKit
-import asyncio
-
-async def main():
-    async with AsyncMedKit() as med:
-        results = await med.papers("CRISPR gene editing")
-        print(f"Found {len(results)} recent papers.")
-
-asyncio.run(main())
-```
-
-### 3. Medical Relationship Graph
-MedKit's signature feature: a medical knowledge graph. Map how drugs relate to trials and papers.
+### 3. Relationship Knowledge Graph
+Map how drugs relate to trials and papers.
 ```python
 graph = med.graph("metformin")
-```
-
-**Example Output:**
-```text
-Metformin
- ├─ treats → Type 2 Diabetes
- ├─ trial → Phase III Study (NCT012345)
- └─ research → Meta-analysis 2026
-```
-
-### 4. Extending Providers (Plugins)
-MedKit is built on a plugin architecture. You can easily add custom data sources.
-```python
-from medkit.providers.base import BaseProvider
-
-class MyPrivateDB(BaseProvider):
-    name = "privatedb"
-    
-    def search_sync(self, query: str):
-        return {"data": "..."}
-
-with MedKit() as med:
-    med.register_provider(MyPrivateDB())
+# Visualizes: Metformin -> Intervenes In -> [Trial A, Trial B] -> Mentions -> [Drug X]
 ```
 
 ---
 
 ## 🖥️ CLI Power Tools
 
-### Provider Status
-Check the real-time health and latency of all integrated medical APIs.
+### Clinical Conclusion
 ```bash
-$ medkit status
+$ medkit conclude "pembrolizumab"
 
-  MedKit Provider Health  
-+-----------------------------------+
-| Provider       | Status | Latency |
-|----------------+--------+---------|
-| openfda        | ONLINE |   120ms |
-| pubmed         | ONLINE |   210ms |
-| clinicaltrials | ONLINE |   180ms |
-+-----------------------------------+
+ Clinical Conclusion
+Summary: Highly-validated therapeutic landscape with multi-modal evidence.
+Evidence Strength: ████████████████████ 1.00
+Key Findings: 
+• FDA data available for: KEYTRUDA QLEX.
+• Validated by 2 Phase III clinical trials.
 ```
 
-### Direct Research Access
-Display clickable URLs or open the top result directly in your browser.
+### Knowledge Graph
 ```bash
-$ medkit papers "Alzheimer's" --limit 3 --links --open
+$ medkit graph "lung cancer"
 ```
 
-### Clinical Ask
+### Research Export
 ```bash
-$ medkit ask "is metformin safe with alcohol?"
+$ medkit export "immunotherapy" --format csv --path my_research.csv
 ```
 
 ---
 
 ## 🤝 Contributing
 
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+Pull requests are welcome. For major changes, please open an issue first.
 
 ### Development Setup
 1. Clone the repository.
-2. Install dependencies: `pip install -e .`
-3. Run tests:
+2. Install dev dependencies: `pip install -e ".[dev]"`
+3. Run quality checks:
 ```bash
+ruff check .
+mypy .
 pytest
 ```
 
@@ -200,9 +161,9 @@ pytest
 
 ## 🗺️ Roadmap
 
-- **Phase 2.0**: AI-powered research summaries and evidence strength scoring.
-- **Phase 2.1**: Advanced pharmacogenomics provider integration.
-- **Phase 3.0**: Local GraphQL API to serve the unified medical mesh.
+- **v0.3.0**: AI-powered conversational agent integration (LLM plug-ins).
+- **v0.4.0**: Advanced pharmacogenomics provider integration.
+- **v1.0.0**: Local GraphQL API to serve the unified medical mesh.
 
 ---
 

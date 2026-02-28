@@ -13,6 +13,19 @@ class InteractionEngine:
     A dynamic engine for detecting drug-drug interactions using OpenFDA labels.
     """
 
+    @staticmethod
+    def _determine_severity(evidence: str) -> str:
+        """Heuristic to determine severity from label text."""
+        e = evidence.lower()
+        high_severity_keywords = [
+            "fatal", "life-threatening", "serious", "avoid", "contraindicated"
+        ]
+        if any(w in e for w in high_severity_keywords):
+            return "High"
+        if any(w in e for w in ["monitor", "caution", "adjustment", "careful"]):
+            return "Moderate"
+        return "Low"
+
     @classmethod
     async def check(
         cls, drugs: List[str], provider: OpenFDAProvider
@@ -25,10 +38,13 @@ class InteractionEngine:
         
         warnings = []
         for item in raw_interactions:
+            evidence = item.get("evidence", "")
+            severity = cls._determine_severity(evidence)
+            
             warning = InteractionWarning(
-                severity=item.get("severity", "N/A"),
+                severity=severity,
                 risk=item.get("risk", "Potential interaction detected."),
-                evidence=item.get("evidence", "Source: OpenFDA Labels")
+                evidence=evidence or "Source: OpenFDA Labels"
             )
             
             warnings.append({
@@ -50,10 +66,13 @@ class InteractionEngine:
         
         warnings = []
         for item in raw_interactions:
+            evidence = item.get("evidence", "")
+            severity = cls._determine_severity(evidence)
+            
             warning = InteractionWarning(
-                severity=item.get("severity", "N/A"),
+                severity=severity,
                 risk=item.get("risk", "Potential interaction detected."),
-                evidence=item.get("evidence", "Source: OpenFDA Labels")
+                evidence=evidence or "Source: OpenFDA Labels"
             )
             
             warnings.append({

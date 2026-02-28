@@ -18,6 +18,7 @@ class DrugInfo(BaseModel):
         default_factory=list, description="Warnings associated with the drug."
     )
     manufacturer: str | None = Field(None, description="Manufacturer of the drug.")
+    mesh_id: str | None = Field(None, description="MeSH ID or clinical identifier.")
 
 
 class ResearchPaper(BaseModel):
@@ -26,6 +27,7 @@ class ResearchPaper(BaseModel):
     authors: list[str] = Field(default_factory=list, description="List of authors.")
     journal: str = Field(..., description="Journal name.")
     year: int | None = Field(None, description="Year of publication.")
+    mesh_id: str | None = Field(None, description="MeSH ID or clinical identifier.")
     abstract: str = Field(..., description="Abstract of the paper.")
 
     @property
@@ -42,6 +44,9 @@ class ClinicalTrial(BaseModel):
         default_factory=list, description="Locations of the trial."
     )
     eligibility: str = Field(..., description="Eligibility criteria.")
+    interventions: list[str] = Field(
+        default_factory=list, description="Drugs or therapies studied."
+    )
 
     @property
     def url(self) -> str:

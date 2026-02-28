@@ -126,6 +126,10 @@ class PubMedProvider(BaseProvider):
                 if year_str.isdigit():
                     year = int(year_str)
 
+            # Extract keywords as mesh_id proxy for correlation
+            keywords = paper_data.get("keywords", [])
+            mesh_id = keywords[0] if keywords else None
+
             papers.append(
                 ResearchPaper(
                     pmid=pmid,
@@ -133,6 +137,7 @@ class PubMedProvider(BaseProvider):
                     authors=authors,
                     journal=journal,
                     year=year,
+                    mesh_id=mesh_id,
                     abstract="",
                 )
             )

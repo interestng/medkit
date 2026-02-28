@@ -11,15 +11,44 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 def cache_response(maxsize: int = 128) -> Callable[[F], F]:
     """
-    A simple in-memory cache decorator for API responses.
+    A unified cache decorator. Uses a provided custom cache (Disk/Memory)
+    if available on the instance, otherwise falls back to lru_cache.
     """
-
     def decorator(func: F) -> F:
-        @functools.lru_cache(maxsize=maxsize)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            return func(*args, **kwargs)
+        # Use lru_cache for sync fallback if no self.cache is present
+        _lru = functools.lru_cache(maxsize=maxsize)(func)
 
-        # Using cast to help mypy understand the type preservation
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            import asyncio
+            cache = getattr(self, "cache", None)
+            
+            if cache:
+                key = f"{func.__name__}:{args}:{kwargs}"
+                cached_val = cache.get(key)
+                if cached_val is not None:
+                    # If it's an async context but we have a sync value,
+                    # return it (Usually we'd need to return a future if 
+                    # the caller expects one)
+                    if asyncio.iscoroutinefunction(func):
+                        async def _ret():
+                            return cached_val
+                        return _ret()
+                    return cached_val
+                
+                if asyncio.iscoroutinefunction(func):
+                    async def _async_wrapper():
+                        result = await func(self, *args, **kwargs)
+                        cache.set(key, result)
+                        return result
+                    return _async_wrapper()
+                else:
+                    result = func(self, *args, **kwargs)
+                    cache.set(key, result)
+                    return result
+            
+            return _lru(self, *args, **kwargs)
+
         return cast(F, wrapper)
 
     return decorator

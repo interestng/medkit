@@ -17,7 +17,7 @@ class AskEngine:
     @staticmethod
     def clean_query(query: str) -> str:
         """Strip noise words and routing keywords from the query."""
-        # Phrases to remove safely (preserving meaning)
+        # Phrases to remove safely 
         noise_patterns = [
             r"clinical trials? (for|on|about)",
             r"research (on|for|about)",
@@ -54,23 +54,44 @@ class AskEngine:
         return q
 
     @staticmethod
-    def route(question: str) -> str:
+    def route(question: str, capabilities: list[str] | None = None) -> str:
         """
         Route the natural language query to an intent using weighted scoring.
-        Prevents substring bugs (e.g., 'industrial' matching 'trial').
+        If 'capabilities' are provided, routes are filtered/prioritized based
+        on which providers are actually registered.
         """
         q = question.lower()
 
         # Intent weights
         scores = {
+            "conclude": 0,
             "trials": 0,
             "papers": 0,
             "explain": 0,
             "summary": 0,
         }
 
+        # Mapping intents to capabilities
+        intent_to_capability = {
+            "conclude": "conclude", # New intent
+            "trials": "trials",
+            "papers": "papers",
+            "explain": "drugs",
+            "summary": "drugs",  # Summaries usually need drug info
+        }
+
         # Regex patterns for each intent (word boundaries are critical)
         patterns = {
+            "conclude": [
+                r"\bconclusion\b", 
+                r"\bbottom line\b", 
+                r"\bevidences?\b", 
+                r"\bsynthesis\b", 
+                r"\bconclude\b",
+                r"\bconsensus\b",
+                r"\bverdict\b",
+                r"\boutcomes?\b"
+            ],
             "trials": [
                 r"\btrials?\b", 
                 r"\bstudies\b", 
@@ -109,6 +130,11 @@ class AskEngine:
             for pattern in regex_list:
                 if re.search(pattern, q):
                     scores[intent] += 1
+            
+            # Boost score if capability exists
+            if capabilities and intent_to_capability.get(intent) in capabilities:
+                if scores[intent] > 0:
+                    scores[intent] += 2  # Capability boost
 
         # Find intent with maximum score
         if not scores:
@@ -122,7 +148,24 @@ class AskEngine:
         top_intents = [k for k, v in scores.items() if v == max_score]
         
         # If there's a tie, use a predefined priority (v1.1 logic)
-        priority = ["explain", "trials", "papers", "summary"]
+        priority = ["conclude", "explain", "trials", "papers", "summary"]
+        
+        # Filter priority by capabilities if possible
+        if capabilities:
+            # Separate capable and non-capable intents, 
+            # ensuring 'conclude' is always considered capable
+            capable_priority = []
+            non_capable_priority = []
+            for p in priority:
+                if p == "conclude" or intent_to_capability.get(p) in capabilities:
+                    capable_priority.append(p)
+                else:
+                    non_capable_priority.append(p)
+            
+            # Reconstruct priority with capable intents first, 
+            # maintaining relative order
+            priority = capable_priority + non_capable_priority
+
         for p in priority:
             if p in top_intents:
                 return p

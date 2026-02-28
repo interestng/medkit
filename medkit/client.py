@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import os
 import time
 from typing import Any, Dict, cast
 
 import httpx
 
 from .ask_engine import AskEngine
+from .cache import DiskCache, MemoryCache
 from .exceptions import MedKitError, PluginError
 from .exporter import Exporter
 from .graph import MedicalGraph
+from .intelligence import IntelligenceEngine
 from .interactions import InteractionEngine
 from .models import (
     ClinicalTrial,
@@ -43,7 +46,11 @@ class AsyncMedKit:
             ),
         )
         self._providers: Dict[str, Provider] = {}
- 
+        if os.getenv("MEDKIT_TESTING"):
+            self.cache: Any = MemoryCache()
+        else:
+            self.cache: Any = DiskCache()
+
         # Register default providers
         self.register_provider(OpenFDAProvider(self._http_client))
         self.register_provider(PubMedProvider(self._http_client))
@@ -70,6 +77,7 @@ class AsyncMedKit:
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         await self.close()
 
+    @cache_response(maxsize=128)
     async def drug(self, name: str) -> DrugInfo:
         """Search for a drug asynchronously (OpenFDA)."""
         provider = self._providers.get("openfda")
@@ -78,6 +86,7 @@ class AsyncMedKit:
         self._fda_limiter.wait()
         return await provider.search(name)
 
+    @cache_response(maxsize=128)
     async def papers(self, query: str, limit: int = 10) -> list[ResearchPaper]:
         """Search for research papers (PubMed), sorted by year."""
         provider = self._providers.get("pubmed")
@@ -87,6 +96,7 @@ class AsyncMedKit:
         results = await provider.search(query, limit=limit)
         return sorted(results, key=lambda p: p.year or 0, reverse=True)
 
+    @cache_response(maxsize=128)
     async def trials(
         self, term: str, recruiting: bool | None = None, limit: int = 10
     ) -> list[ClinicalTrial]:
@@ -174,19 +184,51 @@ class AsyncMedKit:
         # Add root condition node
         graph.add_node(query.lower(), query.title(), "condition")
 
+        # Multi-hop relationship mapping
+        drug_trial_map = IntelligenceEngine.correlate_entities(
+            results.drugs, results.trials
+        )
+
         for d in results.drugs:
-            graph.add_node(d.brand_name.lower(), d.brand_name, "drug")
-            graph.add_edge(d.brand_name.lower(), query.lower(), "treats")
+            brand_lower = d.brand_name.lower()
+            graph.add_node(brand_lower, d.brand_name, "drug")
+            graph.add_edge(brand_lower, query.lower(), "treats")
+
+            # Link drugs to trials they are mentioned in
+            if brand_lower in drug_trial_map:
+                for nct_id in drug_trial_map[brand_lower]:
+                    graph.add_edge(brand_lower, nct_id, "intervenes")
 
         for p in results.papers:
-            graph.add_node(p.pmid, p.title[:30] + "...", "paper")
+            # Short title to avoid long lines in terminal visualization
+            p_title = p.title[:30] + "..." if len(p.title) > 30 else p.title
+            graph.add_node(p.pmid, p_title, "paper")
             graph.add_edge(p.pmid, query.lower(), "researches")
 
         for t in results.trials:
-            graph.add_node(t.nct_id, t.nct_id, "trial")
+            # Use short title for label if available, otherwise NCT ID
+            t_title = t.title[:30] + "..." if len(t.title) > 30 else t.title
+            graph.add_node(t.nct_id, t_title, "trial")
             graph.add_edge(t.nct_id, query.lower(), "studies")
 
         return graph
+
+    async def conclude(self, query: str) -> Any:
+        """Synthesize a clinical conclusion with evidence scoring."""
+        # Use a deeper search for synthesis to capture more evidence
+        drugs = []
+        try:
+            drug_info = await self.drug(query)
+            drugs = [drug_info]
+        except MedKitError:
+            pass
+
+        papers = await self.papers(query, limit=10)
+        trials = await self.trials(query, limit=20)
+
+        return IntelligenceEngine.synthesize(
+            query, drugs, papers, trials
+        )
 
     async def stream_papers(self, query: str, limit: int = 50, chunk_size: int = 10):
         """Stream research papers in chunks."""
@@ -212,7 +254,11 @@ class AsyncMedKit:
 
     async def ask(self, question: str) -> Any:
         """Natural language router."""
-        intent = AskEngine.route(question)
+        capabilities = []
+        for p in self._providers.values():
+            capabilities.extend(p.capabilities())
+
+        intent = AskEngine.route(question, capabilities=capabilities)
         cleaned_q = AskEngine.clean_query(question)
 
         if self.debug:
@@ -221,7 +267,9 @@ class AsyncMedKit:
                 f"'{cleaned_q}' (from '{question}')"
             )
 
-        if intent == "trials":
+        if intent == "conclude":
+            return await self.conclude(cleaned_q)
+        elif intent == "trials":
             return await self.trials(cleaned_q)
         elif intent == "papers":
             return await self.papers(cleaned_q)
@@ -250,7 +298,11 @@ class MedKit:
             ),
         )
         self._providers: Dict[str, Provider] = {}
- 
+        if os.getenv("MEDKIT_TESTING"):
+            self.cache: Any = MemoryCache()
+        else:
+            self.cache: Any = DiskCache()
+
         self.register_provider(OpenFDAProvider(self._http_client))
         self.register_provider(PubMedProvider(self._http_client))
         self.register_provider(ClinicalTrialsProvider(self._http_client))
@@ -377,19 +429,50 @@ class MedKit:
         # Add root condition node
         graph.add_node(query.lower(), query.title(), "condition")
 
+        # Multi-hop relationship mapping
+        drug_trial_map = IntelligenceEngine.correlate_entities(
+            results.drugs, results.trials
+        )
+
         for d in results.drugs:
-            graph.add_node(d.brand_name.lower(), d.brand_name, "drug")
-            graph.add_edge(d.brand_name.lower(), query.lower(), "treats")
+            brand_lower = d.brand_name.lower()
+            graph.add_node(brand_lower, d.brand_name, "drug")
+            graph.add_edge(brand_lower, query.lower(), "treats")
+
+            # Link drugs to trials they are mentioned in
+            if brand_lower in drug_trial_map:
+                for nct_id in drug_trial_map[brand_lower]:
+                    graph.add_edge(brand_lower, nct_id, "intervenes")
 
         for p in results.papers:
-            graph.add_node(p.pmid, p.title[:30] + "...", "paper")
+            p_title = p.title[:30] + "..." if len(p.title) > 30 else p.title
+            graph.add_node(p.pmid, p_title, "paper")
             graph.add_edge(p.pmid, query.lower(), "researches")
 
         for t in results.trials:
-            graph.add_node(t.nct_id, t.nct_id, "trial")
+            # Use short title for label if available, otherwise NCT ID
+            t_title = t.title[:30] + "..." if len(t.title) > 30 else t.title
+            graph.add_node(t.nct_id, t_title, "trial")
             graph.add_edge(t.nct_id, query.lower(), "studies")
 
         return graph
+
+    def conclude(self, query: str) -> Any:
+        """Synthesize a clinical conclusion with evidence scoring."""
+        # Use a deeper search for synthesis to capture more evidence
+        drugs = []
+        try:
+            drug_info = self.drug(query)
+            drugs = [drug_info]
+        except MedKitError:
+            pass
+
+        papers = self.papers(query, limit=10)
+        trials = self.trials(query, limit=20)
+
+        return IntelligenceEngine.synthesize(
+            query, drugs, papers, trials
+        )
 
     def export(self, data: Any, path: str, format: str = "json"):
         """Export data to file."""
@@ -406,7 +489,11 @@ class MedKit:
 
     def ask(self, question: str) -> Any:
         """Natural language router."""
-        intent = AskEngine.route(question)
+        capabilities = []
+        for p in self._providers.values():
+            capabilities.extend(p.capabilities())
+
+        intent = AskEngine.route(question, capabilities=capabilities)
         cleaned_q = AskEngine.clean_query(question)
 
         if self.debug:
@@ -415,7 +502,9 @@ class MedKit:
                 f"'{cleaned_q}' (from '{question}')"
             )
 
-        if intent == "trials":
+        if intent == "conclude":
+            return self.conclude(cleaned_q)
+        elif intent == "trials":
             return self.trials(cleaned_q)
         elif intent == "papers":
             return self.papers(cleaned_q)

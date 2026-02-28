@@ -20,6 +20,7 @@ from medkit import (
     SearchResults,
 )
 from medkit.ask_engine import AskEngine
+from medkit.intelligence import ClinicalConclusion
 
 app = typer.Typer(help="MedKit - Unified Medical API SDK")
 console = Console()
@@ -60,10 +61,18 @@ def interactions(drugs: list[str]):
     """
     Check for potential interactions between a list of drugs.
     """
+    # Flatten and split by commas if user provides "aspirin, warfarin" as one arg
+    final_drugs = []
+    for d in drugs:
+        if "," in d:
+            final_drugs.extend([x.strip() for x in d.split(",")])
+        else:
+            final_drugs.append(d.strip())
+
     with MedKit() as med:
-        warns = med.interactions(drugs)
+        warns = med.interactions(final_drugs)
         if not warns:
-            drugs_str = ", ".join(drugs)
+            drugs_str = ", ".join(final_drugs)
             console.print(
                 f"[bold green]No known interactions found for: "
                 f"{drugs_str}[/bold green]"
@@ -169,13 +178,16 @@ def trials(
     as_json: bool = False,
     links: bool = False,
     open: bool = False,
+    recruiting: bool = typer.Option(
+        False, "--recruiting", help="Only show recruiting trials"
+    ),
 ):
     """
     Search for clinical trials on ClinicalTrials.gov.
     """
     try:
         with MedKit() as med:
-            results = med.trials(condition, limit=limit)
+            results = med.trials(condition, limit=limit, recruiting=recruiting)
 
             if as_json:
                 json_data = [trial.model_dump() for trial in results]
@@ -296,6 +308,8 @@ def ask(question: str, debug: bool = False):
                 _render_summary(res)
             elif isinstance(res, DrugExplanation):
                 _render_explanation(res, cleaned_q)
+            elif isinstance(res, ClinicalConclusion):
+                _render_conclusion(res)
             elif isinstance(res, list) and res and isinstance(res[0], ResearchPaper):
                 _render_papers(res)
             elif isinstance(res, list) and res and isinstance(res[0], ClinicalTrial):
@@ -402,21 +416,102 @@ def graph(query: str):
 
             tree = Tree(f"[bold white on blue] {query.title()} [/bold white on blue]")
 
-            # Group by type
-            for node_type in ["drug", "trial", "paper"]:
-                branch = tree.add(f"[bold]{node_type.capitalize()}s[/bold]")
-                found = False
-                for node in g.nodes:
-                    if node.type == node_type:
-                        branch.add(f"{node.label} [dim]({node.type})[/dim]")
-                        found = True
-                if not found:
-                    branch.add("[dim]None found[/dim]")
+            # 1. Add specific Drug branch with nested correlations
+            drug_branch = tree.add("[bold]Drugs[/bold]")
+            drugs_found = [n for n in g.nodes if n.type == "drug"]
+            if not drugs_found:
+                drug_branch.add("[dim]None found[/dim]")
+            else:
+                for drug_node in drugs_found:
+                    d_node = drug_branch.add(f"{drug_node.label}")
+                    # Find trials linked to THIS drug
+                    linked_trials = [
+                        target_id for source_id, target_id, relation in g.edges 
+                        if source_id == drug_node.id and relation == "intervenes"
+                    ]
+                    if linked_trials:
+                        for t_id in linked_trials:
+                            # Find trial label
+                            t_node = next((n for n in g.nodes if n.id == t_id), None)
+                            t_label = t_node.label if t_node else t_id
+                            d_node.add(f"[dim]Intervenes in:[/dim] {t_label}")
+
+            # 2. Add Trials branch (all)
+            trial_branch = tree.add("[bold]Trials[/bold]")
+            trials_found = [n for n in g.nodes if n.type == "trial"]
+            if not trials_found:
+                trial_branch.add("[dim]None found[/dim]")
+            else:
+                for trial_node in trials_found:
+                    trial_branch.add(f"{trial_node.label}")
+
+            # 3. Add Papers branch
+            paper_branch = tree.add("[bold]Papers[/bold]")
+            papers_found = [n for n in g.nodes if n.type == "paper"]
+            if not papers_found:
+                paper_branch.add("[dim]None found[/dim]")
+            else:
+                for paper_node in papers_found:
+                    paper_branch.add(f"{paper_node.label}")
 
             console.print("\n", tree)
 
     except MedKitError as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
+
+
+@app.command()
+def conclude(query: str):
+    """
+    Get a synthesized clinical conclusion for a term.
+    """
+    try:
+        with MedKit() as med:
+            with console.status(
+                f"[bold blue]Synthesizing evidence for '{query}'...[/bold blue]"
+            ):
+                conclusion = med.conclude(query)
+            _render_conclusion(conclusion)
+    except MedKitError as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+
+
+@app.command()
+def export(query: str, format: str = "json", path: str = "results.json"):
+    """
+    Export search results for a term to a file.
+    """
+    try:
+        with MedKit() as med:
+            with console.status(
+                f"[bold blue]Exporting data for '{query}' to {path}...[/bold blue]"
+            ):
+                results = med.search(query)
+                med.export(results, path, format=format)
+            console.print(
+                f"[bold green]Successfully exported results to {path}[/bold green]"
+            )
+    except MedKitError as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+
+
+def _render_conclusion(c: ClinicalConclusion):
+    console.print("\n[bold white on green] Clinical Conclusion [/bold white on green]")
+    console.print(f"\n[bold]Summary:[/bold] {c.summary}")
+    
+    # Evidence Meter
+    score = c.evidence_score
+    color = "green" if score > 0.7 else "yellow" if score > 0.4 else "red"
+    meter = "█" * int(score * 20) + "░" * (20 - int(score * 20))
+    console.print(
+        f"[bold]Evidence Strength:[/bold] [{color}]{meter}[/{color}] {score:.2f}"
+    )
+
+    console.print("\n[bold]Key Findings:[/bold]")
+    for finding in c.key_findings:
+        console.print(f"• {finding}")
+
+    console.print(f"\n[bold cyan]Recommendation:[/bold cyan] {c.recommendation}\n")
 
 
 if __name__ == "__main__":
