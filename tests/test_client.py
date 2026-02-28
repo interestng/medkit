@@ -12,6 +12,8 @@ from medkit.models import ClinicalTrial, DrugInfo, ResearchPaper
 
 @pytest.fixture
 def mock_medkit(mocker):
+    import os
+    os.environ["MEDKIT_TESTING"] = "1"
     med = MedKit()
     # Mock the providers
     for name in list(med._providers.keys()):

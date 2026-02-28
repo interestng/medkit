@@ -43,6 +43,7 @@ test_results_raw.txt
 *.json
 !package.json
 !tsconfig.json
+.medkit_cache/
 
 # Testing
 .pytest_cache/
