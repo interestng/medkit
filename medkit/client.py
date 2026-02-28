@@ -1,19 +1,29 @@
 from __future__ import annotations
+
 import time
-from typing import Any, List, Optional, Dict, Union
+from typing import Any, Dict, List, Optional, Union
+
 import httpx
 
-from .models import DrugInfo, ResearchPaper, ClinicalTrial, DrugExplanation, SearchResults, ConditionSummary, SearchMetadata
+from .ask_engine import AskEngine
+from .exceptions import MedKitError, PluginError
+from .exporter import Exporter
+from .graph import Edge, MedicalGraph, Node
+from .interactions import InteractionEngine
+from .models import (
+    ClinicalTrial,
+    ConditionSummary,
+    DrugExplanation,
+    DrugInfo,
+    ResearchPaper,
+    SearchMetadata,
+    SearchResults,
+)
 from .providers.base import Provider
+from .providers.clinicaltrials import ClinicalTrialsProvider
 from .providers.openfda import OpenFDAProvider
 from .providers.pubmed import PubMedProvider
-from .providers.clinicaltrials import ClinicalTrialsProvider
-from .ask_engine import AskEngine
-from .graph import MedicalGraph, Node, Edge
-from .exporter import Exporter
-from .interactions import InteractionEngine
-from .utils import cache_response, RateLimiter
-from .exceptions import MedKitError, PluginError
+from .utils import RateLimiter, cache_response
 
 
 class AsyncMedKit:
@@ -21,20 +31,24 @@ class AsyncMedKit:
     Asynchronous unified medical developer platform.
     """
 
-    def __init__(self, timeout: float = 10.0, max_connections: int = 100, debug: bool = False):
+    def __init__(
+        self, timeout: float = 10.0, max_connections: int = 100, debug: bool = False
+    ):
         self.debug = debug
         self._http_client = httpx.AsyncClient(
             timeout=timeout,
             http2=True,
-            limits=httpx.Limits(max_connections=max_connections, max_keepalive_connections=20)
+            limits=httpx.Limits(
+                max_connections=max_connections, max_keepalive_connections=20
+            ),
         )
         self._providers: Dict[str, Provider] = {}
-        
+
         # Register default providers
         self.register_provider(OpenFDAProvider(self._http_client))
         self.register_provider(PubMedProvider(self._http_client))
         self.register_provider(ClinicalTrialsProvider(self._http_client))
-        
+
         self._pubmed_limiter = RateLimiter(calls=3, period=1.0)
         self._fda_limiter = RateLimiter(calls=40, period=60.0)
         self._trials_limiter = RateLimiter(calls=10, period=1.0)
@@ -73,7 +87,9 @@ class AsyncMedKit:
         results = await provider.search(query, limit=limit)
         return sorted(results, key=lambda p: p.year or 0, reverse=True)
 
-    async def trials(self, term: str, recruiting: bool | None = None, limit: int = 10) -> list[ClinicalTrial]:
+    async def trials(
+        self, term: str, recruiting: bool | None = None, limit: int = 10
+    ) -> list[ClinicalTrial]:
         """Search for clinical trials (ClinicalTrials.gov)."""
         provider = self._providers.get("clinicaltrials")
         if not provider:
@@ -95,20 +111,24 @@ class AsyncMedKit:
 
         try:
             papers = await self.papers(query, limit=5)
-            if papers: sources.append("pubmed")
+            if papers:
+                sources.append("pubmed")
         except MedKitError:
             papers = []
 
         try:
             trials = await self.trials(query, limit=5)
-            if trials: sources.append("clinicaltrials")
+            if trials:
+                sources.append("clinicaltrials")
         except MedKitError:
             trials = []
 
         latency = time.time() - start_time
         metadata = SearchMetadata(query_time=latency, sources=sources)
-        
-        return SearchResults(drugs=drugs, papers=papers, trials=trials, metadata=metadata)
+
+        return SearchResults(
+            drugs=drugs, papers=papers, trials=trials, metadata=metadata
+        )
 
     async def explain_drug(self, name: str) -> DrugExplanation:
         """Comprehensive async drug explanation."""
@@ -133,41 +153,47 @@ class AsyncMedKit:
     async def summary(self, query: str) -> ConditionSummary:
         """Get a high-level summary of a medical condition."""
         results = await self.search(query)
-        drug_names = list(set([d.generic_name for d in results.drugs] + [d.brand_name for d in results.drugs]))
+        drug_names = list(
+            set(
+                [d.generic_name for d in results.drugs]
+                + [d.brand_name for d in results.drugs]
+            )
+        )
         return ConditionSummary(
             condition=query,
             drugs=drug_names[:5],
             papers=results.papers[:5],
-            trials=results.trials[:3]
+            trials=results.trials[:3],
         )
 
     async def graph(self, query: str) -> MedicalGraph:
         """Build a medical relationship graph."""
         results = await self.search(query)
         graph = MedicalGraph()
-        
+
         # Add root condition node
         graph.add_node(query.lower(), query.title(), "condition")
-        
+
         for d in results.drugs:
             graph.add_node(d.brand_name.lower(), d.brand_name, "drug")
             graph.add_edge(d.brand_name.lower(), query.lower(), "treats")
-            
+
         for p in results.papers:
             graph.add_node(p.pmid, p.title[:30] + "...", "paper")
             graph.add_edge(p.pmid, query.lower(), "researches")
-            
+
         for t in results.trials:
             graph.add_node(t.nct_id, t.nct_id, "trial")
             graph.add_edge(t.nct_id, query.lower(), "studies")
-            
+
         return graph
 
     async def stream_papers(self, query: str, limit: int = 50, chunk_size: int = 10):
         """Stream research papers in chunks."""
         for i in range(0, limit, chunk_size):
             chunk = await self.papers(query, limit=chunk_size)
-            if not chunk: break
+            if not chunk:
+                break
             for paper in chunk:
                 yield paper
 
@@ -186,10 +212,12 @@ class AsyncMedKit:
         """Natural language router."""
         intent = AskEngine.route(question)
         cleaned_q = AskEngine.clean_query(question)
-        
+
         if self.debug:
-            print(f"[MedKit] Ask intent: {intent} for query: '{cleaned_q}' (from '{question}')")
-            
+            print(
+                f"[MedKit] Ask intent: {intent} for query: '{cleaned_q}' (from '{question}')"
+            )
+
         if intent == "trials":
             return await self.trials(cleaned_q)
         elif intent == "papers":
@@ -207,20 +235,24 @@ class MedKit:
     Unified medical developer platform.
     """
 
-    def __init__(self, timeout: float = 10.0, max_connections: int = 100, debug: bool = False):
+    def __init__(
+        self, timeout: float = 10.0, max_connections: int = 100, debug: bool = False
+    ):
         self.debug = debug
         self._http_client = httpx.Client(
             timeout=timeout,
             http2=True,
-            limits=httpx.Limits(max_connections=max_connections, max_keepalive_connections=20)
+            limits=httpx.Limits(
+                max_connections=max_connections, max_keepalive_connections=20
+            ),
         )
         self._providers: Dict[str, Provider] = {}
-        
+
         # Register default providers
         self.register_provider(OpenFDAProvider(self._http_client))
         self.register_provider(PubMedProvider(self._http_client))
         self.register_provider(ClinicalTrialsProvider(self._http_client))
-        
+
         self._pubmed_limiter = RateLimiter(calls=3, period=1.0)
         self._fda_limiter = RateLimiter(calls=40, period=60.0)
         self._trials_limiter = RateLimiter(calls=10, period=1.0)
@@ -260,7 +292,9 @@ class MedKit:
         return sorted(results, key=lambda p: p.year or 0, reverse=True)
 
     @cache_response(maxsize=128)
-    def trials(self, term: str, recruiting: bool | None = None, limit: int = 10) -> list[ClinicalTrial]:
+    def trials(
+        self, term: str, recruiting: bool | None = None, limit: int = 10
+    ) -> list[ClinicalTrial]:
         provider = self._providers.get("clinicaltrials")
         if not provider:
             raise MedKitError("ClinicalTrials provider not registered.")
@@ -280,20 +314,24 @@ class MedKit:
 
         try:
             papers = self.papers(query, limit=5)
-            if papers: sources.append("pubmed")
+            if papers:
+                sources.append("pubmed")
         except MedKitError:
             papers = []
 
         try:
             trials = self.trials(query, limit=5)
-            if trials: sources.append("clinicaltrials")
+            if trials:
+                sources.append("clinicaltrials")
         except MedKitError:
             trials = []
 
         latency = time.time() - start_time
         metadata = SearchMetadata(query_time=latency, sources=sources)
-        
-        return SearchResults(drugs=drugs, papers=papers, trials=trials, metadata=metadata)
+
+        return SearchResults(
+            drugs=drugs, papers=papers, trials=trials, metadata=metadata
+        )
 
     def explain_drug(self, name: str) -> DrugExplanation:
         drug_info = None
@@ -316,34 +354,39 @@ class MedKit:
 
     def summary(self, query: str) -> ConditionSummary:
         results = self.search(query)
-        drug_names = list(set([d.generic_name for d in results.drugs] + [d.brand_name for d in results.drugs]))
+        drug_names = list(
+            set(
+                [d.generic_name for d in results.drugs]
+                + [d.brand_name for d in results.drugs]
+            )
+        )
         return ConditionSummary(
             condition=query,
             drugs=drug_names[:5],
             papers=results.papers[:5],
-            trials=results.trials[:3]
+            trials=results.trials[:3],
         )
 
     def graph(self, query: str) -> MedicalGraph:
         """Build a medical relationship graph."""
         results = self.search(query)
         graph = MedicalGraph()
-        
+
         # Add root condition node
         graph.add_node(query.lower(), query.title(), "condition")
-        
+
         for d in results.drugs:
             graph.add_node(d.brand_name.lower(), d.brand_name, "drug")
             graph.add_edge(d.brand_name.lower(), query.lower(), "treats")
-            
+
         for p in results.papers:
             graph.add_node(p.pmid, p.title[:30] + "...", "paper")
             graph.add_edge(p.pmid, query.lower(), "researches")
-            
+
         for t in results.trials:
             graph.add_node(t.nct_id, t.nct_id, "trial")
             graph.add_edge(t.nct_id, query.lower(), "studies")
-            
+
         return graph
 
     def export(self, data: Any, path: str, format: str = "json"):
@@ -361,10 +404,12 @@ class MedKit:
         """Natural language router."""
         intent = AskEngine.route(question)
         cleaned_q = AskEngine.clean_query(question)
-        
+
         if self.debug:
-            print(f"[MedKit] Ask intent: {intent} for query: '{cleaned_q}' (from '{question}')")
-            
+            print(
+                f"[MedKit] Ask intent: {intent} for query: '{cleaned_q}' (from '{question}')"
+            )
+
         if intent == "trials":
             return self.trials(cleaned_q)
         elif intent == "papers":

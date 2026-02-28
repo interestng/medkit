@@ -1,10 +1,13 @@
 from __future__ import annotations
+
 from typing import Any
+
 import httpx
 
+from ..exceptions import APIError, NotFoundError
 from ..models import ResearchPaper
-from ..exceptions import APIError
 from .base import BaseProvider
+
 
 class PubMedProvider(BaseProvider):
     SEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
@@ -21,7 +24,7 @@ class PubMedProvider(BaseProvider):
         try:
             response = self.http_client.get(
                 self.SUMMARY_URL,
-                params={"db": "pubmed", "id": item_id, "retmode": "json"}
+                params={"db": "pubmed", "id": item_id, "retmode": "json"},
             )
             response.raise_for_status()
             results = self._parse_summaries(response.json(), [item_id])
@@ -35,7 +38,7 @@ class PubMedProvider(BaseProvider):
         try:
             response = await self.http_client.get(
                 self.SUMMARY_URL,
-                params={"db": "pubmed", "id": item_id, "retmode": "json"}
+                params={"db": "pubmed", "id": item_id, "retmode": "json"},
             )
             response.raise_for_status()
             results = self._parse_summaries(response.json(), [item_id])
@@ -50,17 +53,22 @@ class PubMedProvider(BaseProvider):
         try:
             search_response = self.http_client.get(  # type: ignore
                 self.SEARCH_URL,
-                params={"db": "pubmed", "term": query, "retmode": "json", "retmax": limit}
+                params={
+                    "db": "pubmed",
+                    "term": query,
+                    "retmode": "json",
+                    "retmax": limit,
+                },
             )
             search_response.raise_for_status()
             pmids = search_response.json().get("esearchresult", {}).get("idlist", [])
-            
+
             if not pmids:
                 return []
 
             summary_response = self.http_client.get(  # type: ignore
                 self.SUMMARY_URL,
-                params={"db": "pubmed", "id": ",".join(pmids), "retmode": "json"}
+                params={"db": "pubmed", "id": ",".join(pmids), "retmode": "json"},
             )
             summary_response.raise_for_status()
             return self._parse_summaries(summary_response.json(), pmids)
@@ -72,24 +80,31 @@ class PubMedProvider(BaseProvider):
         try:
             search_response = await self.http_client.get(  # type: ignore
                 self.SEARCH_URL,
-                params={"db": "pubmed", "term": query, "retmode": "json", "retmax": limit}
+                params={
+                    "db": "pubmed",
+                    "term": query,
+                    "retmode": "json",
+                    "retmax": limit,
+                },
             )
             search_response.raise_for_status()
             pmids = search_response.json().get("esearchresult", {}).get("idlist", [])
-            
+
             if not pmids:
                 return []
 
             summary_response = await self.http_client.get(  # type: ignore
                 self.SUMMARY_URL,
-                params={"db": "pubmed", "id": ",".join(pmids), "retmode": "json"}
+                params={"db": "pubmed", "id": ",".join(pmids), "retmode": "json"},
             )
             summary_response.raise_for_status()
             return self._parse_summaries(summary_response.json(), pmids)
         except httpx.HTTPError as e:
             raise APIError(f"PubMed API error: {e}") from e
 
-    def _parse_summaries(self, data: dict[str, Any], pmids: list[str]) -> list[ResearchPaper]:
+    def _parse_summaries(
+        self, data: dict[str, Any], pmids: list[str]
+    ) -> list[ResearchPaper]:
         results = data.get("result", {})
         papers = []
 
@@ -99,9 +114,11 @@ class PubMedProvider(BaseProvider):
                 continue
 
             title = paper_data.get("title", "")
-            authors = [author.get("name", "") for author in paper_data.get("authors", [])]
+            authors = [
+                author.get("name", "") for author in paper_data.get("authors", [])
+            ]
             journal = paper_data.get("fulljournalname", "")
-            
+
             pubdate = paper_data.get("pubdate", "")
             year = None
             if pubdate:
@@ -111,8 +128,12 @@ class PubMedProvider(BaseProvider):
 
             papers.append(
                 ResearchPaper(
-                    pmid=pmid, title=title, authors=authors, journal=journal,
-                    year=year, abstract=""
+                    pmid=pmid,
+                    title=title,
+                    authors=authors,
+                    journal=journal,
+                    year=year,
+                    abstract="",
                 )
             )
         return papers

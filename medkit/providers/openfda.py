@@ -1,10 +1,13 @@
 from __future__ import annotations
+
 from typing import Any
+
 import httpx
 
-from ..models import DrugInfo
 from ..exceptions import APIError, NotFoundError
+from ..models import DrugInfo
 from .base import BaseProvider
+
 
 class OpenFDAProvider(BaseProvider):
     BASE_URL = "https://api.fda.gov/drug/label.json"
@@ -26,8 +29,7 @@ class OpenFDAProvider(BaseProvider):
         search_query = f'openfda.brand_name:"{query}" openfda.generic_name:"{query}"'
         try:
             response = self.http_client.get(  # type: ignore
-                self.BASE_URL,
-                params={"search": search_query, "limit": 1}
+                self.BASE_URL, params={"search": search_query, "limit": 1}
             )
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
@@ -44,8 +46,7 @@ class OpenFDAProvider(BaseProvider):
         search_query = f'openfda.brand_name:"{query}" openfda.generic_name:"{query}"'
         try:
             response = await self.http_client.get(  # type: ignore
-                self.BASE_URL,
-                params={"search": search_query, "limit": 1}
+                self.BASE_URL, params={"search": search_query, "limit": 1}
             )
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
@@ -68,12 +69,12 @@ class OpenFDAProvider(BaseProvider):
         brand_name = openfda.get("brand_name", ["Unknown"])[0]
         generic_name = openfda.get("generic_name", ["Unknown"])[0]
         manufacturer = openfda.get("manufacturer_name", [None])[0]
-        
+
         warnings_list = result.get("warnings", [])
-        
+
         return DrugInfo(
             brand_name=brand_name,
             generic_name=generic_name,
             warnings=warnings_list,
-            manufacturer=manufacturer
+            manufacturer=manufacturer,
         )

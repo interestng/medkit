@@ -1,20 +1,31 @@
 from __future__ import annotations
-import os
-import json
-import pickle
+
 import hashlib
-from typing import Any, Optional
+import json
+import os
+import pickle
 from pathlib import Path
+from typing import Any, Optional
+
 
 class BaseCache:
-    def get(self, key: str) -> Any: raise NotImplementedError
-    def set(self, key: str, value: Any): raise NotImplementedError
+    def get(self, key: str) -> Any:
+        raise NotImplementedError
+
+    def set(self, key: str, value: Any):
+        raise NotImplementedError
+
 
 class MemoryCache(BaseCache):
     def __init__(self):
         self._data: dict[str, Any] = {}
-    def get(self, key: str) -> Any: return self._data.get(key)
-    def set(self, key: str, value: Any): self._data[key] = value
+
+    def get(self, key: str) -> Any:
+        return self._data.get(key)
+
+    def set(self, key: str, value: Any):
+        self._data[key] = value
+
 
 class DiskCache(BaseCache):
     def __init__(self, cache_dir: str = ".medkit_cache"):
@@ -32,7 +43,7 @@ class DiskCache(BaseCache):
                 with open(path, "rb") as f:
                     return pickle.load(f)
             except (pickle.UnpicklingError, EOFError):
-                 return None
+                return None
         return None
 
     def set(self, key: str, value: Any):

@@ -11,12 +11,13 @@ sys.path.append(str(Path(__file__).parent.parent))
 from medkit import MedKit
 from medkit.exceptions import MedKitError
 
+
 def main():
     try:
         with MedKit() as med:
             print("Fetching info for 'ibuprofen'...")
             info = med.drug("ibuprofen")
-            
+
             print(f"Brand Name: {info.brand_name}")
             print(f"Generic Name: {info.generic_name}")
             print(f"Manufacturer: {info.manufacturer}")
@@ -25,6 +26,7 @@ def main():
                 print(f" - {w}")
     except MedKitError as e:
         print(f"Error: {e}")
+
 
 if __name__ == "__main__":
     main()

@@ -1,11 +1,14 @@
 from __future__ import annotations
+
 from typing import Any, Protocol, runtime_checkable
+
 
 @runtime_checkable
 class Provider(Protocol):
     """
     Protocol defining the contract for a MedKit data provider.
     """
+
     name: str
 
     async def search(self, query: str, **kwargs) -> Any:
@@ -27,7 +30,7 @@ class Provider(Protocol):
     async def get(self, item_id: str) -> Any:
         """Fetch record by ID."""
         ...
-    
+
     def get_sync(self, item_id: str) -> Any:
         """Fetch record by ID (sync)."""
         ...
@@ -37,6 +40,7 @@ class BaseProvider:
     """
     Base class for MedKit providers.
     """
+
     def __init__(self, name: str):
         self.name = name
 

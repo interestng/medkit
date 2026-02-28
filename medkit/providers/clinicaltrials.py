@@ -1,17 +1,21 @@
 from __future__ import annotations
+
 from typing import Any
+
 import httpx
 
-from ..models import ClinicalTrial
 from ..exceptions import APIError
+from ..models import ClinicalTrial
 from .base import BaseProvider
+
 
 class ClinicalTrialsProvider(BaseProvider):
     """
     Provider for ClinicalTrials.gov API v2.
-    Note: Some environments may experience 403 Forbidden errors due to strict 
+    Note: Some environments may experience 403 Forbidden errors due to strict
     automated-access policies on the NIH servers.
     """
+
     BASE_URL = "https://clinicaltrials.gov/api/v2/studies"
 
     def __init__(self, http_client: httpx.Client | httpx.AsyncClient):
@@ -55,7 +59,12 @@ class ClinicalTrialsProvider(BaseProvider):
         recruiting = kwargs.get("recruiting")
         params = {"query.cond": query, "pageSize": limit}
         try:
-            response = self.http_client.get(self.BASE_URL, params=params, headers=self._get_headers(), follow_redirects=True) # type: ignore
+            response = self.http_client.get(
+                self.BASE_URL,
+                params=params,
+                headers=self._get_headers(),
+                follow_redirects=True,
+            )  # type: ignore
             response.raise_for_status()
             return self._parse_response(response.json(), recruiting)
         except httpx.HTTPError as e:
@@ -66,46 +75,63 @@ class ClinicalTrialsProvider(BaseProvider):
         recruiting = kwargs.get("recruiting")
         params = {"query.cond": query, "pageSize": limit}
         try:
-            response = await self.http_client.get(self.BASE_URL, params=params, headers=self._get_headers(), follow_redirects=True) # type: ignore
+            response = await self.http_client.get(
+                self.BASE_URL,
+                params=params,
+                headers=self._get_headers(),
+                follow_redirects=True,
+            )  # type: ignore
             response.raise_for_status()
             return self._parse_response(response.json(), recruiting)
         except httpx.HTTPError as e:
             raise APIError(f"ClinicalTrials.gov API error: {e}") from e
 
-    def _parse_response(self, data: dict[str, Any], recruiting: bool | None = None) -> list[ClinicalTrial]:
+    def _parse_response(
+        self, data: dict[str, Any], recruiting: bool | None = None
+    ) -> list[ClinicalTrial]:
         trials = []
         studies = data.get("studies", [])
-        
+
         for study in studies:
             protocol = study.get("protocolSection", {})
             identification = protocol.get("identificationModule", {})
             nct_id = identification.get("nctId", "Unknown")
             title = identification.get("briefTitle", "Unknown Trial")
-            
+
             status_module = protocol.get("statusModule", {})
             overall_status = status_module.get("overallStatus", "Unknown")
-            
+
             if recruiting is not None:
                 is_currently_recruiting = overall_status.upper() == "RECRUITING"
                 if recruiting and not is_currently_recruiting:
                     continue
                 if not recruiting and is_currently_recruiting:
                     continue
-                    
+
             design = protocol.get("designModule", {})
             phases = design.get("phases", [])
-            
+
             contacts = protocol.get("contactsLocationsModule", {})
             locations_data = contacts.get("locations", [])
-            locations = [loc.get("facility", "Unknown Location") for loc in locations_data if loc.get("facility")]
-            
+            locations = [
+                loc.get("facility", "Unknown Location")
+                for loc in locations_data
+                if loc.get("facility")
+            ]
+
             eligibility_mod = protocol.get("eligibilityModule", {})
-            eligibility_criteria = eligibility_mod.get("eligibilityCriteria", "Not specified")
-            
+            eligibility_criteria = eligibility_mod.get(
+                "eligibilityCriteria", "Not specified"
+            )
+
             trials.append(
                 ClinicalTrial(
-                    nct_id=nct_id, title=title, status=overall_status,
-                    phase=phases, location=locations, eligibility=eligibility_criteria
+                    nct_id=nct_id,
+                    title=title,
+                    status=overall_status,
+                    phase=phases,
+                    location=locations,
+                    eligibility=eligibility_criteria,
                 )
             )
         return trials
