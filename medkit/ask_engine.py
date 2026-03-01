@@ -1,173 +1,158 @@
 from __future__ import annotations
 
-import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union, cast
+
+from .intelligence import IntelligenceEngine
+from .models import (
+    ClinicalConclusion,
+    ConditionSummary,
+    DrugExplanation,
+    SearchResults,
+)
 
 if TYPE_CHECKING:
-    pass
+    from .client import AsyncMedKit, MedKit
 
 
 class AskEngine:
     """
-    Natural Language Router for MedKit.
-    Detects intent and routes queries to the correct providers using
-    weighted scoring and regex word boundaries.
+    High-level orchestration engine for clinical questions.
+    Routes queries to appropriate synthesis methods based on intent and complexity.
     """
 
-    @staticmethod
-    def clean_query(query: str) -> str:
-        """Strip noise words and routing keywords from the query."""
-        # Phrases to remove safely 
-        noise_patterns = [
-            r"clinical trials? (for|on|about)",
-            r"research (on|for|about)",
-            r"papers? (about|for|on)",
-            r"information about",
-            r"info on",
-            r"tell me (more )?about",
-            r"what (is|are)( the)?",
-            r"(common|typical|recent|latest|new)",
-            r"side(-| )?effects?( of| for)?",
-            r"summarize",
-            r"summarise",
-            r"summarization",
-            r"explanation (of|for)?",
-            r"explain",
-            r"overview (of|for)?",
-            r"briefly",
-            r"warnings?( of| for)?",
-            r"dosages?( of| for)?",
-            r"trials?( for| of)?",
-            r"studies( of| for)?",
-            r"study( of| for)?",
-        ]
-        
+    def __init__(self, client: Union["MedKit", "AsyncMedKit"]):
+        self.client = client
+        self.intelligence = IntelligenceEngine()
+
+    def _determine_intent(self, query: str) -> str:
+        """Categorize query to decide orchestration strategy."""
+        query_lower = query.lower()
+
+        # Drug Detail Intent
+        drug_keywords = ["what is", "mechanism", "dose", "dosage", "side effect", "rx"]
+        if any(w in query_lower for w in drug_keywords):
+            return "explain_drug"
+
+        # Condition Summary Intent
+        condition_keywords = ["summary", "overview", "treatments for", "status of"]
+        if any(w in query_lower for w in condition_keywords):
+            return "summarize_condition"
+
+        return "synthesize"
+
+    def _extract_search_terms(self, query: str) -> str:
+        """
+        Strip natural language filler to improve API search hits using heuristics.
+        """
+        import re
+
         q = query.lower()
-        for pattern in noise_patterns:
-            # Use \b for word boundaries to avoid partial matches
-            q = re.sub(rf"\b{pattern}\b", "", q)
-            
-        # Clean up extra whitespace from deletions
-        q = re.sub(r"\s+", " ", q).strip()
-        # Strip trailing punctuation (e.g., ?, ., !)
-        q = re.sub(r"[?\.!]+$", "", q).strip()
-        return q
 
-    @staticmethod
-    def route(question: str, capabilities: list[str] | None = None) -> str:
-        """
-        Route the natural language query to an intent using weighted scoring.
-        If 'capabilities' are provided, routes are filtered/prioritized based
-        on which providers are actually registered.
-        """
-        q = question.lower()
+        # Typos and common variations
+        q = q.replace("clinial", "clinical")
 
-        # Intent weights
-        scores = {
-            "conclude": 0,
-            "trials": 0,
-            "papers": 0,
-            "explain": 0,
-            "summary": 0,
-        }
+        # Robustly strip common question prefixes/filler
+        stop_patterns = [
+            r"what (?:is|are) the clinical status of",
+            r"what (?:is|are) the status of",
+            r"what (?:is|are) clinical trials for",
+            r"what (?:is|are|is are)",
+            r"clinical status of",
+            r"clinical trials for",
+            r"overview of",
+            r"summary of",
+            r"information on",
+            r"tell me about",
+            r"research for",
+            r"papers on",
+            r"trials for",
+        ]
 
-        # Mapping intents to capabilities
-        intent_to_capability = {
-            "conclude": "conclude", # New intent
-            "trials": "trials",
-            "papers": "papers",
-            "explain": "drugs",
-            "summary": "drugs",  # Summaries usually need drug info
-        }
+        for pattern in stop_patterns:
+            q = re.sub(pattern, "", q).strip()
 
-        # Regex patterns for each intent (word boundaries are critical)
-        patterns = {
-            "conclude": [
-                r"\bconclusion\b", 
-                r"\bbottom line\b", 
-                r"\bevidences?\b", 
-                r"\bsynthesis\b", 
-                r"\bconclude\b",
-                r"\bconsensus\b",
-                r"\bverdict\b",
-                r"\boutcomes?\b"
-            ],
-            "trials": [
-                r"\btrials?\b", 
-                r"\bstudies\b", 
-                r"\bstudy\b", 
-                r"\bnct\b"
-            ],
-            "papers": [
-                r"\bpapers?\b",
-                r"\bresearch\b",
-                r"\bpmids?\b",
-                r"\bjournals?\b",
-                r"\babstracts?\b",
-                r"\barticles?\b",
-            ],
-            "explain": [
-                r"\bdrugs?\b",
-                r"\bfda\b",
-                r"\blabels?\b",
-                r"\bmanufacturers?\b",
-                r"\bside(-| )?effects?\b",
-                r"\bwarnings?\b",
-                r"\bdosages?\b",
-            ],
-            "summary": [
-                r"\bsummaries\b",
-                r"\bsummary\b", 
-                r"\boverviews?\b", 
-                r"\bbriefs?\b",
-                r"\bsummarize\b",
-                r"\bsummarise\b"
-            ],
-        }
-
-        # Calculate scores based on keyword presence
-        for intent, regex_list in patterns.items():
-            for pattern in regex_list:
-                if re.search(pattern, q):
-                    scores[intent] += 1
-            
-            # Boost score if capability exists
-            if capabilities and intent_to_capability.get(intent) in capabilities:
-                if scores[intent] > 0:
-                    scores[intent] += 2  # Capability boost
-
-        # Find intent with maximum score
-        if not scores:
-            return "search"
-            
-        max_score = max(scores.values())
-        if max_score == 0:
-            return "search"
-
-        # Get the intent(s) with the highest score
-        top_intents = [k for k, v in scores.items() if v == max_score]
-        
-        # If there's a tie, use a predefined priority (v1.1 logic)
-        priority = ["conclude", "explain", "trials", "papers", "summary"]
-        
-        # Filter priority by capabilities if possible
-        if capabilities:
-            # Separate capable and non-capable intents, 
-            # ensuring 'conclude' is always considered capable
-            capable_priority = []
-            non_capable_priority = []
-            for p in priority:
-                if p == "conclude" or intent_to_capability.get(p) in capabilities:
-                    capable_priority.append(p)
+        # Heuristic: If "for"/"in" exists after a status-like phrase,
+        # we want the part AFTER the preposition (the actual condition).
+        # e.g. "status for malignant tumors" -> "malignant tumors"
+        prepositions = [" for ", " in ", " with ", " as "]
+        for sep in prepositions:
+            if sep in q:
+                parts = q.split(sep)
+                # If the first part is very short or just "status", prioritize the second part
+                if any(w in parts[0] for w in ["status", "overview", "summary"]):
+                    q = parts[1]
+                elif len(parts[0].strip()) < 3:  # "A in B" -> "B"
+                    q = parts[1]
                 else:
-                    non_capable_priority.append(p)
-            
-            # Reconstruct priority with capable intents first, 
-            # maintaining relative order
-            priority = capable_priority + non_capable_priority
+                    # Keep both parts for conditions (e.g. "immunotherapy lung cancer")
+                    # But strip the preposition itself for a cleaner search
+                    q = f"{parts[0]} {parts[1]}"
 
-        for p in priority:
-            if p in top_intents:
-                return p
+        # Final cleanup: strip common leading words that might linger
+        q = re.sub(r"^(?:the|of|a|an)\s+", "", q)
+        return q.strip("? ").strip()
 
-        return top_intents[0]
+    async def ask(
+        self, query: str
+    ) -> Union[DrugExplanation, ConditionSummary, ClinicalConclusion]:
+        """Asynchronous entry point for structured clinical queries."""
+        from .client import AsyncMedKit
+
+        intent = self._determine_intent(query)
+        search_query = self._extract_search_terms(query)
+        client = cast(AsyncMedKit, self.client)
+
+        results: SearchResults = await client.search(search_query)
+
+        if intent == "explain_drug" and results.drugs:
+            return DrugExplanation(
+                drug_info=results.drugs[0],
+                papers=results.papers[:5],
+                trials=results.trials[:5],
+            )
+        elif intent == "summarize_condition":
+            return ConditionSummary(
+                condition=query,
+                drugs=[d.brand_name for d in results.drugs[:5]],
+                papers=results.papers[:5],
+                trials=results.trials[:5],
+            )
+        else:
+            return self.intelligence.synthesize(
+                query=query,
+                drugs=results.drugs,
+                papers=results.papers,
+                trials=results.trials,
+            )
+
+    def ask_sync(
+        self, query: str
+    ) -> Union[DrugExplanation, ConditionSummary, ClinicalConclusion]:
+        """Synchronous entry point for structured clinical queries."""
+        from .client import MedKit
+
+        intent = self._determine_intent(query)
+        search_query = self._extract_search_terms(query)
+        client = cast(MedKit, self.client)
+        results: SearchResults = client.search(search_query)
+
+        if intent == "explain_drug" and results.drugs:
+            return DrugExplanation(
+                drug_info=results.drugs[0],
+                papers=results.papers[:5],
+                trials=results.trials[:5],
+            )
+        elif intent == "summarize_condition":
+            return ConditionSummary(
+                condition=query,
+                drugs=[d.brand_name for d in results.drugs[:5]],
+                papers=results.papers[:5],
+                trials=results.trials[:5],
+            )
+        else:
+            return self.intelligence.synthesize(
+                query=query,
+                drugs=results.drugs,
+                papers=results.papers,
+                trials=results.trials,
+            )

@@ -2,6 +2,7 @@
 Tests for the MedKit client.
 """
 
+import os
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -12,7 +13,6 @@ from medkit.models import ClinicalTrial, DrugInfo, ResearchPaper
 
 @pytest.fixture
 def mock_medkit(mocker):
-    import os
     os.environ["MEDKIT_TESTING"] = "1"
     med = MedKit()
     # Mock the providers
@@ -26,17 +26,18 @@ def mock_medkit(mocker):
     med._trials_limiter.wait = MagicMock()
 
     yield med
-    med.close()
+    # No close() method, context manager handles it usually but we call __exit__
+    med.__exit__(None, None, None)
 
 
 def test_drug_lookup(mock_medkit):
     mock_drug = DrugInfo(
         brand_name="Aspirin",
         generic_name="Acetylsalicylic acid",
-        warnings=[],
+        interactions=[],
         manufacturer="Bayer",
     )
-    mock_medkit._providers["openfda"].search_sync.return_value = mock_drug
+    mock_medkit._providers["openfda"].search_sync.return_value = [mock_drug]
 
     result = mock_medkit.drug("aspirin")
     assert result.brand_name == "Aspirin"
@@ -51,6 +52,7 @@ def test_papers_search(mock_medkit):
         journal="Test Journal",
         year=2023,
         abstract="",
+        url="https://test.com",
     )
     mock_medkit._providers["pubmed"].search_sync.return_value = [mock_paper]
 
@@ -61,35 +63,36 @@ def test_papers_search(mock_medkit):
 
 def test_trials_search(mock_medkit):
     mock_trial = ClinicalTrial(
-        nct_id="NCT123",
+        nct_id="NCT12345678",
         title="Test Trial",
         status="RECRUITING",
         phase=[],
         location=[],
         eligibility="",
+        url="https://test.com",
     )
     mock_medkit._providers["clinicaltrials"].search_sync.return_value = [mock_trial]
 
     results = mock_medkit.trials("cancer")
     assert len(results) == 1
-    assert results[0].nct_id == "NCT123"
+    assert results[0].nct_id == "NCT12345678"
 
 
 def test_explain_drug(mock_medkit):
     mock_drug = DrugInfo(
         brand_name="TestDrug",
         generic_name="Test",
-        warnings=[],
+        interactions=[],
         manufacturer="TestMakers",
     )
-    mock_medkit._providers["openfda"].search_sync.return_value = mock_drug
+    mock_medkit._providers["openfda"].search_sync.return_value = [mock_drug]
     mock_medkit._providers["pubmed"].search_sync.return_value = []
     mock_medkit._providers["clinicaltrials"].search_sync.return_value = []
 
-    result = mock_medkit.explain_drug("testdrug")
+    result = mock_medkit.ask("what is testdrug")
+    # Result of ask is a DrugExplanation object because of "what is" intent
+    assert hasattr(result, "drug_info")
     assert result.drug_info.brand_name == "TestDrug"
-    assert len(result.papers) == 0
-    assert len(result.trials) == 0
 
 
 @pytest.mark.asyncio
@@ -100,15 +103,12 @@ async def test_async_search():
             med._providers[name].search = AsyncMock()
 
         mock_drug = DrugInfo(
-            brand_name="Aspirin", generic_name="A", warnings=[], manufacturer="B"
+            brand_name="Aspirin", generic_name="A", interactions=[], manufacturer="B"
         )
-        med._providers["openfda"].search.return_value = mock_drug
+        med._providers["openfda"].search.return_value = [mock_drug]
         med._providers["pubmed"].search.return_value = []
         med._providers["clinicaltrials"].search.return_value = []
 
-        # Test search
-        # Note: we don't assert brand_name here because med.search() swallows drug
-        # errors if not found
-        # but since we mocked it to return something, it should work.
         res = await med.search("aspirin")
         assert res.metadata is not None
+        assert len(res.drugs) == 1

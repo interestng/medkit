@@ -1,0 +1,9 @@
+medkit\interactions.py:37: error: "OpenFDAProvider" has no attribute "check_interactions"  [attr-defined]
+medkit\interactions.py:65: error: "OpenFDAProvider" has no attribute "check_interactions_sync"  [attr-defined]
+medkit\ask_engine.py:45: error: Item "MedKit" of "MedKit | AsyncMedKit" has no attribute "search"  [union-attr]
+medkit\ask_engine.py:71: error: Item "AsyncMedKit" of "MedKit | AsyncMedKit" has no attribute "search_sync"  [union-attr]
+medkit\client.py:213: error: Too many arguments for "InteractionEngine"  [call-arg]
+medkit\client.py:214: error: Missing positional argument "provider" in call to "check_sync" of "InteractionEngine"  [call-arg]
+medkit\cli.py:12: error: Module "medkit" has no attribute "ClinicalConclusion"  [attr-defined]
+medkit\cli.py:155: error: "MedKit" has no attribute "search"  [attr-defined]
+Found 8 errors in 4 files (checked 27 source files)

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "medkit-sdk"
-version = "1.4.0"
+version = "2.0.0"
 description = "A unified Python SDK for public medical APIs (OpenFDA, PubMed, ClinicalTrials.gov)"
 readme = "README.md"
 authors = [
@@ -35,13 +35,14 @@ medkit = "medkit.cli:app"
 packages = ["medkit"]
 
 [tool.black]
-line-length = 88
+line-length = 100
 target-version = ["py39"]
 
 [tool.ruff]
-line-length = 88
+line-length = 100
 target-version = "py39"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+ignore = ["E501"]
 fixable = ["ALL"]

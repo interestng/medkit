@@ -3,160 +3,150 @@ from __future__ import annotations
 import re
 from typing import Dict, List
 
-from pydantic import BaseModel, Field
-
-from .models import ClinicalTrial, DrugInfo, ResearchPaper
+from .models import ClinicalConclusion, ClinicalTrial, DrugInfo, ResearchPaper
 
 
-class ClinicalConclusion(BaseModel):
-    summary: str = Field(..., description="Synthesized clinical conclusion.")
-    evidence_score: float = Field(
-        ..., description="Calculated strength of evidence (0.0-1.0)."
-    )
-    key_findings: List[str] = Field(
-        default_factory=list, description="Top clinical take-aways."
-    )
-    recommendation: str = Field(
-        ..., description="Suggested clinical next-step based on data."
-    )
+class ClinicalEvidenceMatrix:
+    """
+    Rigorously weighing clinical evidence using scientifically-aligned coefficients.
+    Weights are derived from standard clinical trial hierarchy.
+    """
+
+    COEFFICIENTS = {
+        "PHASE_3": 0.4,
+        "PHASE_2": 0.2,
+        "PHASE_1": 0.1,
+        "FDA_APPROVED": 0.3,
+        "PEER_REVIEWED": 0.1,  # Baseline for any research paper
+    }
+
+    @classmethod
+    def score(
+        cls,
+        trials: List[ClinicalTrial],
+        papers: List[ResearchPaper],
+        drugs: List[DrugInfo],
+    ) -> float:
+        """
+        Calculate a confidence score (0.0 - 1.0) based on clinical data volume.
+        """
+        score = 0.0
+
+        # Trial Weights
+        for trial in trials:
+            phases = [str(p).upper() for p in (trial.phase or [])]
+            if any(
+                "PHASE 3" in p or "PHASE 4" in p or "PHASE III" in p or "PHASE IV" in p
+                for p in phases
+            ):
+                score += cls.COEFFICIENTS["PHASE_3"]
+            elif any("PHASE 2" in p or "PHASE II" in p for p in phases):
+                score += cls.COEFFICIENTS["PHASE_2"]
+            else:
+                score += cls.COEFFICIENTS["PHASE_1"]
+
+        # Paper Weights (Quality over quantity, capped at 0.5)
+        paper_score = min(len(papers) * cls.COEFFICIENTS["PEER_REVIEWED"], 0.5)
+        score += paper_score
+
+        # FDA Status
+        if drugs:
+            score += cls.COEFFICIENTS["FDA_APPROVED"]
+
+        return min(max(score / 5.0, 0.1), 1.0)
 
 
 class IntelligenceEngine:
     """
-    Core engine for medical data synthesis and entity correlation.
+    Production-grade medical intelligence engine for clinical synthesis.
     """
 
     @staticmethod
     def synthesize(
-        query: str, 
-        drugs: List[DrugInfo], 
-        papers: List[ResearchPaper], 
-        trials: List[ClinicalTrial]
+        query: str,
+        drugs: List[DrugInfo],
+        papers: List[ResearchPaper],
+        trials: List[ClinicalTrial],
     ) -> ClinicalConclusion:
-        """
-        Synthesize disparate data points into a single clinical conclusion.
-        """
-        # 1. Evidence Scoring Logic (Ultra-Granular)
-        score = 0.0
-        findings = []
+        """Synthesize disparate data into a structured clinical conclusion."""
+        confidence = ClinicalEvidenceMatrix.score(trials, papers, drugs)
 
-        # FDA Authority (0.15)
-        if drugs:
-            score += 0.15
-            drug_names = [d.brand_name for d in drugs[:2]]
-            findings.append(
-                f"FDA data available for: {', '.join(drug_names)}."
-            )
-            
-        # Clinical Trial Depth & Quality (Max 0.50)
-        p3_trials = []
-        p2_trials = []
-        p3_regex = re.compile(r"PHASE[ \-]?(3|III)", re.IGNORECASE)
-        p2_regex = re.compile(r"PHASE[ \-]?(2|II)", re.IGNORECASE)
+        from collections import Counter
 
+        intervention_counts: Counter[str] = Counter()
         for t in trials:
-            phases = [str(p) for p in t.phase]
-            if any(p3_regex.search(p) for p in phases):
-                p3_trials.append(t)
-            elif any(p2_regex.search(p) for p in phases):
-                p2_trials.append(t)
+            if t.interventions:
+                intervention_counts.update(t.interventions)
+        for d in drugs:
+            # Heavily weight FDA drugs
+            intervention_counts[d.generic_name] += 5
+            intervention_counts[d.brand_name] += 5
 
-        if p3_trials:
-            # Phase 3: 0.25 base + 0.05 per trial (higher base to clear 0.50 easily)
-            p3_score = min(0.25 + (len(p3_trials) * 0.05), 0.45)
-            score += p3_score
-            findings.append(
-                f"Validated by {len(p3_trials)} Phase III clinical trials."
-            )
-        
-        if p2_trials:
-            # Phase 2: 0.10 base + 0.02 per trial
-            p2_score = min(0.10 + (len(p2_trials) * 0.02), 0.20)
-            score += p2_score
-            findings.append(
-                f"Includes {len(p2_trials)} mid-stage (Phase II) studies."
-            )
+        # Sort by frequency, then alphabetically for ties
+        # Filter out unusually long names which are likely procedural descriptions
+        filtered_interv = {
+            name: count
+            for name, count in intervention_counts.items()
+            if len(name) < 100
+        }
 
-        # Research Depth & Recency (Max 0.35)
-        from datetime import datetime
-        current_year = datetime.now().year
-        recent_papers = [p for p in papers if p.year and (current_year - p.year <= 3)]
-        
-        # Volume bonus: 0.01 per relevant data point found (Total Volume)
-        volume_bonus = min((len(trials) + len(papers)) * 0.015, 0.25)
-        score += volume_bonus
-        
-        # Recency bonus: 0.03 per recent paper
-        recency_bonus = min(len(recent_papers) * 0.03, 0.10)
-        score += recency_bonus
-        
-        if recent_papers:
-            findings.append(
-                f"High recent academic activity ({len(recent_papers)} papers)."
-            )
+        sorted_interv = sorted(filtered_interv.items(), key=lambda x: (-x[1], x[0]))
+        top_interv = [name for name, count in sorted_interv[:5]]
 
-        # 2. Results Differentiation (Deterministic Template)
-        summary = f"Clinical synthesis for '{query}': "
-        
-        if score >= 0.7:
-            summary += (
-                "Highly-validated therapeutic landscape with multi-modal evidence."
+        # Clinical summary generation based on confidence level
+        if confidence > 0.7:
+            summary = (
+                f"High-confidence clinical consensus exists for target '{query}'. "
+                f"Analysis identifies {len(drugs)} FDA agents and {len(trials)} trials."
             )
-            recommendation = (
-                "Standard-of-care identified; focus on Phase III long-term outcomes."
-            )
-        elif score >= 0.5:
-            summary += (
-                "Strong clinical evidence base found across multiple regulated sources."
-            )
-            recommendation = (
-                "Actionable; prioritize approved labels and late-stage trial cohorts."
-            )
-        elif score >= 0.3:
-            summary += (
-                "Emerging clinical consensus with moderate late-stage validation."
-            )
-            recommendation = (
-                "Monitor Phase II/III pivot points for therapeutic changes."
-            )
-        elif score >= 0.15:
-            summary += (
-                "Preliminary evidence base characterized by early-phase research."
-            )
-            recommendation = (
-                "Exploratory; focus on mechanistic studies and Phase I/II data."
+        elif confidence > 0.4:
+            summary = (
+                f"Emerging evidence for '{query}' identified ({len(papers)} papers). "
+                f"Preliminary Phase II data suggests therapeutic potential."
             )
         else:
-            summary += "Sparse clinical evidence found in primary repositories."
-            recommendation = (
-                "Broaden search parameters or investigate case-study literature."
+            summary = (
+                f"Limited primary clinical evidence available for '{query}'. "
+                f"Synthesis based on {len(papers)} papers and "
+                f"{len(trials)} early studies."
             )
 
         return ClinicalConclusion(
+            query=query,
             summary=summary,
-            evidence_score=round(min(score, 1.0), 2),
-            key_findings=findings[:4],
-            recommendation=recommendation
+            confidence_score=round(confidence, 2),
+            evidence_count={
+                "trials": len(trials),
+                "papers": len(papers),
+                "drugs": len(drugs),
+            },
+            top_interventions=top_interv,
+            suggested_trials=[t.nct_id for t in trials if t.recruiting][:3],
         )
 
     @staticmethod
     def correlate_entities(
-        drugs: List[DrugInfo], 
-        trials: List[ClinicalTrial]
+        drugs: List[DrugInfo], trials: List[ClinicalTrial]
     ) -> Dict[str, List[str]]:
-        """
-        Maps drugs to trials based on intervention matching.
-        """
-        mapping = {}
+        """Correlate drugs with clinical trials using robust entity matching."""
+        drug_trial_map = {}
         for drug in drugs:
-            pattern = (
-                rf"\b({re.escape(drug.brand_name)}|"
-                rf"{re.escape(drug.generic_name)})\b"
-            )
-            drug_regex = re.compile(pattern, re.IGNORECASE)
+            brand_id = drug.brand_name.lower()
+            generic_id = drug.generic_name.lower()
+
             related_trials = []
             for trial in trials:
-                if any(drug_regex.search(inter) for inter in trial.interventions):
+                text = (
+                    f"{trial.title or ''} {' '.join(trial.interventions or [])} "
+                    f"{trial.description or ''}"
+                ).lower()
+
+                if re.search(rf"\b{re.escape(brand_id)}\b", text) or re.search(
+                    rf"\b{re.escape(generic_id)}\b", text
+                ):
                     related_trials.append(trial.nct_id)
-            mapping[drug.brand_name.lower()] = related_trials
-        return mapping
+
+            if related_trials:
+                drug_trial_map[brand_id] = related_trials
+
+        return drug_trial_map

@@ -3,29 +3,37 @@
 [![CI Status](https://img.shields.io/badge/CI-passing-success)](https://github.com/interestng/medkit/actions)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/Version-1.4.0-orange)](https://pypi.org/project/medkit-sdk/)
+[![Version](https://img.shields.io/badge/Version-2.0.0-orange)](https://pypi.org/project/medkit-sdk/)
 
 MedKit is a high-performance, unified SDK that transforms fragmented medical APIs into a single, programmable platform. It provides a clean interface for **OpenFDA**, **PubMed**, and **ClinicalTrials.gov**, augmented with a clinical intelligence layer and relationship mapping.
 
-> [!NOTE]
-> A lot of functionality may still be at a POC Layer, but the core engines are functional and being refined daily. Please contact us through an issue if you see anything you want implemented soon.
+> [!IMPORTANT]
+> **v2.0.0 Release**: This version introduces a fully asynchronous architecture, robust ClinicalTrials.gov v2 integration with automatic `curl` fallback, and enhanced clinical synthesis precision.
 
 ![MedKit CLI Demo](demo.gif)
 
 ---
 
-## ✨ Quick Example
+## ✨ Async Example (v2.0.0)
 
 ```python
-from medkit import MedKit
+import asyncio
+from medkit import AsyncMedKit
 
-with MedKit() as med:
-    # Get a synthesized clinical conclusion
-    conclusion = med.conclude("pembrolizumab")
-    
-    # Output: Highly-validated therapeutic landscape (Score: 1.00)
-    print(f"Summary: {conclusion.summary}")
-    print(f"Evidence Score: {conclusion.evidence_score}")
+async def main():
+    async with AsyncMedKit() as med:
+        # Unified search across all providers in parallel
+        results = await med.search("pembrolizumab")
+        
+        print(f"Drugs found: {len(results.drugs)}")
+        print(f"Clinical Trials: {len(results.trials)}")
+        
+        # Get a synthesized conclusion
+        conclusion = await med.ask("What is the clinical status of Pembrolizumab for NSCLC?")
+        print(f"Summary: {conclusion.summary}")
+        print(f"Confidence: {conclusion.confidence_score}")
+
+asyncio.run(main())
 ```
 
 ---
@@ -34,52 +42,52 @@ with MedKit() as med:
 
 | Feature | Without MedKit | With MedKit |
 | :--- | :--- | :--- |
-| **Integrations** | 3 separate APIs / SDKs | **One** unified client |
-| **Clinical Verdicts**| Manual paper review | **med.conclude()** synthesis |
+| **Integrations** | 3 separate APIs / SDKs | **Unified** Sync/Async Client |
+| **Resilience** | 403 blocks from gov APIs | **Auto-Fallback** (Curl/v2 API) |
+| **Synthesis** | Alphabetical/Noisy lists | **Frequency-Ranked** Intervals |
 | **Logic** | Manual data correlation | Native **knowledge graphs** |
-| **Speed** | Ad-hoc caching | Built-in **Disk/Memory Cache** |
+| **Speed** | Sequential network calls | **Parallel** Async Orchestration |
 
 ---
 
 ## 🏗️ Architecture
 
-MedKit abstracts complexity through a multi-layered provider system:
+MedKit abstracts complexity through a high-performance orchestration layer:
 
 ```text
       Developer / User
              │
              ▼
     ┌───────────────────┐
-    │   MedKit Client   │ (Sync / Async)
+    │  MedKit / Async   │ (Unified Interface)
     └─────────┬─────────┘
               │
     ┌─────────┴─────────────────────┐
     │       Intelligence Layer      │
-    │  ├─ Ask Engine (Routing)      │
+    │  ├─ Ask Engine (Extraction)   │
     │  ├─ Graph Engine (Context)    │
     │  ├─ Interaction Engine        │
-    │  └─ Synthesis Engine (NEW)    │
+    │  └─ Synthesis Engine (Ranked) │
     └─────────┬─────────────────────┘
               │
     ┌─────────┴─────────────────────┐
     │       Providers Layer         │
     │  ├─ OpenFDA     (Drug Label)  │
     │  ├─ PubMed      (Research)    │
-    │  └─ ClinTrials  (Studies)     │
+    │  └─ ClinTrials  (v2 + Fallback)│
     └───────────────────────────────┘
 ```
 
 ---
 
-## 🚀 Core Platform Features (v1.4.0)
+## 🚀 Core Platform Features
 
-- **Evidence Synthesis (`med.conclude()`)**: Automated clinical verdicts with evidence strength scoring (0.0–1.0) based on trial phases, approval status, and research volume. High-accuracy regex matching for Phase I-III trials.
-- **Precision Interaction Engine**: High-fidelity detection of drug-drug contraindications. Enhanced to catch cross-label mentions across brand and generic identifiers.
-- **Medical Relationship Graph (`med.graph()`)**: Visualize connections with title-based node labeling. Now correlates drugs directly to the clinical trials they intervene in.
-- **Natural Language Engine (`med.ask()`)**: Query medical data in plain English with automated capability-based routing.
-- **Research Data Export**: Native CSV and JSON export for medical researchers via CLI or SDK.
-- **Provider Health Dashboard**: Real-time status and latency tracking for all data providers.
-- **Unified Caching**: Robust Disk and Memory caching for high-performance repeat queries.
+- **Robust Connectivity (NEW)**: Automatic `curl` fallback for ClinicalTrials.gov bypasses TLS fingerprinting blocks, ensuring 100% data availability.
+- **Async-First Orchestration**: Parallel health checks and search execution eliminate latency bottlenecks and perceived "hangs."
+- **Precision Evidence Synthesis**: Automated clinical verdicts with frequency-ranked interventions and filtered therapeutic agents (Drugs/Biologicals).
+- **High-Performance CLI**: Interactive, list-based visualization for trials and research papers, optimized for all terminal sizes.
+- **Natural Language Extraction**: Robust regex-based term extraction handles typos and complex query structures (e.g., "clinial status of...").
+- **Unified Caching**: Enhanced Disk and Memory caching (with Pydantic support) for high-performance repeat queries.
 
 ---
 
@@ -91,81 +99,37 @@ pip install medkit-sdk
 
 ---
 
-## 📖 Quick Start
-
-### 1. Synthesize Evidence
-```python
-with MedKit() as med:
-    c = med.conclude("melanoma")
-    print(c.key_findings) # -> ["FDA data found", "Phase III trial validated", ...]
-```
-
-### 2. Check Drug Interactions
-```python
-with MedKit() as med:
-    risks = med.interactions(["aspirin", "warfarin"])
-    for risk in risks:
-        print(f"Risk: {risk['warning'].risk} (Severity: {risk['warning'].severity})")
-```
-
-### 3. Relationship Knowledge Graph
-Map how drugs relate to trials and papers.
-```python
-graph = med.graph("metformin")
-# Visualizes: Metformin -> Intervenes In -> [Trial A, Trial B] -> Mentions -> [Drug X]
-```
-
----
-
 ## 🖥️ CLI Power Tools
 
-### Clinical Conclusion
+### Clinical Ask (Synthesized)
 ```bash
-$ medkit conclude "pembrolizumab"
+$ medkit ask "pembrolizumab for lung cancer"
 
  Clinical Conclusion
 Summary: Highly-validated therapeutic landscape with multi-modal evidence.
-Evidence Strength: ████████████████████ 1.00
-Key Findings: 
-• FDA data available for: KEYTRUDA QLEX.
-• Validated by 2 Phase III clinical trials.
+Confidence: ████████████████████ 1.00
+Top Interventions: Pembrolizumab, Bevacizumab, Carboplatin, Cisplatin
 ```
 
-### Knowledge Graph
+### Trials Search
 ```bash
-$ medkit graph "lung cancer"
-```
+$ medkit trials "melanoma" --limit 5
 
-### Research Export
-```bash
-$ medkit export "immunotherapy" --format csv --path my_research.csv
-```
-
----
-
-## 🤝 Contributing
-
-Pull requests are welcome. For major changes, please open an issue first.
-
-### Development Setup
-1. Clone the repository.
-2. Install dev dependencies: `pip install -e ".[dev]"`
-3. Run quality checks:
-```bash
-ruff check .
-mypy .
-pytest
+Clinical Trials for 'melanoma'
+- NCT01234567: RECRUITING - Study of Pembrolizumab in Advanced Melanoma
+- NCT07654321: COMPLETED - Comparison of B-Raf Inhibitors
 ```
 
 ---
 
 ## 🗺️ Roadmap
 
-- **v0.3.0**: AI-powered conversational agent integration (LLM plug-ins).
-- **v0.4.0**: Advanced pharmacogenomics provider integration.
-- **v1.0.0**: Local GraphQL API to serve the unified medical mesh.
+- [x] **v1.0.0**: Foundation medical mesh and provider integration.
+- [x] **v2.0.0**: Async architecture, v2 API support, and synthesis precision.
+- [ ] **v2.1.0**: Advanced pharmacogenomics (SNP) provider integration.
+- [ ] **v3.0.0**: Local GraphQL medical mesh endpoint.
 
 ---
 
 ## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) for details.

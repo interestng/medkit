@@ -15,6 +15,7 @@ from .exporter import Exporter
 from .graph import MedicalGraph
 from .interactions import InteractionEngine
 from .models import (
+    ClinicalConclusion,
     ClinicalTrial,
     ConditionSummary,
     DrugExplanation,
@@ -36,6 +37,7 @@ __all__ = [
     "SearchResults",
     "ConditionSummary",
     "SearchMetadata",
+    "ClinicalConclusion",
     "MedicalGraph",
     "Exporter",
     "MemoryCache",

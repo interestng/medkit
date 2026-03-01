@@ -1,0 +1,52 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.7, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\avira\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: C:\Users\avira\Downloads\Unified Health API Wrapper
+configfile: pyproject.toml
+plugins: anyio-4.12.1, Faker-37.8.0, hypothesis-6.150.2, asyncio-1.2.0, cov-7.0.0, mock-3.15.1
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 5 items
+
+tests/test_client.py::test_drug_lookup ERROR                             [ 20%]
+tests/test_client.py::test_papers_search ERROR                           [ 40%]
+tests/test_client.py::test_trials_search ERROR                           [ 60%]
+tests/test_client.py::test_explain_drug ERROR                            [ 80%]
+tests/test_client.py::test_async_search FAILED                           [100%]
+
+=================================== ERRORS ====================================
+_____________________ ERROR at setup of test_drug_lookup ______________________
+tests\test_client.py:26: in mock_medkit
+    med._trials_limiter.wait = MagicMock()
+    ^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'MedKit' object has no attribute '_trials_limiter'. Did you mean: '_fda_limiter'?
+____________________ ERROR at setup of test_papers_search _____________________
+tests\test_client.py:26: in mock_medkit
+    med._trials_limiter.wait = MagicMock()
+    ^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'MedKit' object has no attribute '_trials_limiter'. Did you mean: '_fda_limiter'?
+____________________ ERROR at setup of test_trials_search _____________________
+tests\test_client.py:26: in mock_medkit
+    med._trials_limiter.wait = MagicMock()
+    ^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'MedKit' object has no attribute '_trials_limiter'. Did you mean: '_fda_limiter'?
+_____________________ ERROR at setup of test_explain_drug _____________________
+tests\test_client.py:26: in mock_medkit
+    med._trials_limiter.wait = MagicMock()
+    ^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'MedKit' object has no attribute '_trials_limiter'. Did you mean: '_fda_limiter'?
+================================== FAILURES ===================================
+______________________________ test_async_search ______________________________
+tests\test_client.py:102: in test_async_search
+    mock_drug = DrugInfo(
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for DrugInfo
+E   warnings
+E     Extra inputs are not permitted [type=extra_forbidden, input_value=[], input_type=list]
+E       For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+=========================== short test summary info ===========================
+FAILED tests/test_client.py::test_async_search - pydantic_core._pydantic_core...
+ERROR tests/test_client.py::test_drug_lookup - AttributeError: 'MedKit' objec...
+ERROR tests/test_client.py::test_papers_search - AttributeError: 'MedKit' obj...
+ERROR tests/test_client.py::test_trials_search - AttributeError: 'MedKit' obj...
+ERROR tests/test_client.py::test_explain_drug - AttributeError: 'MedKit' obje...
+========================= 1 failed, 4 errors in 2.21s =========================
