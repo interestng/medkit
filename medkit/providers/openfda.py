@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, cast, Optional, Tuple
 
 import httpx
 
@@ -144,7 +144,7 @@ class OpenFDAProvider(BaseProvider):
             return []
 
         # Pre-fetch drug info for all drugs to avoid redundant API calls
-        drug_infos = []
+        drug_infos: List[Tuple[str, Optional[DrugInfo]]] = []
         for d in drugs:
             info_list = self.search_sync(d, limit=1)
             if info_list:
@@ -203,11 +203,11 @@ class OpenFDAProvider(BaseProvider):
         import asyncio
 
         # Pre-fetch drug info for all drugs to avoid redundant API calls
-        async def fetch_info(d: str):
+        async def fetch_info(d: str) -> Tuple[str, Optional[DrugInfo]]:
             info_list = await self.search(d, limit=1)
             return d, (info_list[0] if info_list else None)
 
-        drug_infos = await asyncio.gather(*(fetch_info(d) for d in drugs))
+        drug_infos: List[Tuple[str, Optional[DrugInfo]]] = await asyncio.gather(*(fetch_info(d) for d in drugs))
 
         found = []
         for i, (drug_a, info_a) in enumerate(drug_infos):
