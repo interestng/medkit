@@ -237,6 +237,7 @@ def ask(question: str, debug: bool = False) -> None:
 def graph(query: str, as_json: bool = False) -> None:
     """Build a relationship graph mapping drugs, papers, and trials for a query term."""
     import asyncio
+
     from medkit import AsyncMedKit
 
     async def _run() -> None:
@@ -246,7 +247,7 @@ def graph(query: str, as_json: bool = False) -> None:
                     g = await med.graph(query)
 
                 if as_json:
-                    console.print(json.dumps(g.to_dict(), indent=2))
+                    console.print(json.dumps(g.model_dump(), indent=2))
                     return
 
                 if not g.nodes:

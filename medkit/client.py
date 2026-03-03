@@ -211,7 +211,8 @@ class AsyncMedKit(BaseMedKit):
 
         # Add Clinical Trials and map their interventions
         for trial in results.trials:
-            graph.add_node(trial.nct_id, trial.title[:50] + "...", "trial")
+            display_title = (trial.title[:50] + "...") if trial.title else trial.nct_id
+            graph.add_node(trial.nct_id, display_title, "trial")
             
             if trial.interventions:
                 for intervention in trial.interventions:
