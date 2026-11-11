@@ -5,7 +5,7 @@
 [![Strict Mypy](https://img.shields.io/badge/typing-Strict-blue.svg)](https://mypy.readthedocs.io/en/stable/)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/Version-3.0.0-orange)](https://pypi.org/project/medkit-sdk/)
+[![Version](https://img.shields.io/badge/Version-3.2.0-orange)](https://pypi.org/project/medkit-sdk/)
 
 MedKit is a high-performance, unified SDK that transforms fragmented medical APIs into a single, programmable platform. It provides a clean interface for **OpenFDA**, **PubMed**, and **ClinicalTrials.gov**, augmented with a clinical intelligence layer and relationship mapping.
 
@@ -37,6 +37,23 @@ async def main():
 
 asyncio.run(main())
 ```
+
+---
+
+## 🔬 Filtering Clinical Trials (v3.2.0)
+
+Narrow trial searches by phase and status, and get the details that matter when judging a study: design, size, sponsor, dates and sites.
+
+```python
+from medkit import MedKit
+
+with MedKit() as med:
+    trials = med.trials("pembrolizumab", phase=3, status="completed", limit=5)
+    for t in trials:
+        print(t.nct_id, t.phase, t.enrollment, t.sponsor, t.start_date, t.location[:2])
+```
+
+`phase` accepts `3`, `"phase 2"` or a list like `["PHASE2", "PHASE3"]`; `status` accepts one or more ClinicalTrials.gov statuses (`"RECRUITING"`, `"COMPLETED"`, ...).
 
 ---
 

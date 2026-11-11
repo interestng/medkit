@@ -344,12 +344,18 @@ class MedKit(BaseMedKit):
         )
 
     def trials(
-        self, condition: str, limit: int = 10, recruiting: bool = False
+        self,
+        condition: str,
+        limit: int = 10,
+        recruiting: bool = False,
+        phase: Union[int, str, List[str], None] = None,
+        status: Union[str, List[str], None] = None,
     ) -> List[ClinicalTrial]:
+        """Search ClinicalTrials.gov, optionally filtered by phase (e.g. 3) and status."""
         return cast(
             List[ClinicalTrial],
             self._get_provider("clinicaltrials").search_sync(
-                condition, limit=limit, recruiting=recruiting
+                condition, limit=limit, recruiting=recruiting, phase=phase, status=status
             ),
         )
 

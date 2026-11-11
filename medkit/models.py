@@ -63,6 +63,13 @@ class ClinicalTrial(BaseModel):
     interventions: List[str] = Field(
         default_factory=list, description="Drugs or therapies studied."
     )
+    study_type: Optional[str] = Field(None, description="INTERVENTIONAL, OBSERVATIONAL, etc.")
+    enrollment: Optional[int] = Field(None, description="Planned or actual number of participants.")
+    sponsor: Optional[str] = Field(None, description="Lead sponsor of the trial.")
+    start_date: Optional[str] = Field(None, description="Study start date (YYYY-MM or YYYY-MM-DD).")
+    completion_date: Optional[str] = Field(
+        None, description="Primary completion date (YYYY-MM or YYYY-MM-DD)."
+    )
 
     @property
     def full_url(self) -> str:

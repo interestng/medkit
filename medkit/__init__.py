@@ -26,7 +26,7 @@ from .models import (
     SearchResults,
 )
 
-__version__ = "3.0.0"
+__version__ = "3.2.0"
 
 from .config import MedKitConfig, ProviderConfig, RetryConfig
 from .retry import retry

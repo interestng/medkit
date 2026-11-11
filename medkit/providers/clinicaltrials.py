@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import subprocess
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, Sequence, Union, cast
 from urllib.parse import urlencode
 
 import httpx
@@ -11,6 +11,28 @@ import httpx
 from ..exceptions import APIError, NotFoundError
 from ..models import ClinicalTrial
 from .base import BaseProvider
+
+VALID_PHASES = {"EARLY_PHASE1", "PHASE1", "PHASE2", "PHASE3", "PHASE4", "NA"}
+
+
+def _as_list(value: Union[str, Sequence[str], None]) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [v.strip() for v in value.split(",") if v.strip()]
+    return [str(v).strip() for v in value if str(v).strip()]
+
+
+def _normalize_phase(phase: str) -> str:
+    """Accept "3", "phase 3", "Phase3" or "PHASE3" and return the API's PHASE3 form."""
+    p = phase.upper().replace(" ", "").replace("_", "")
+    if p == "EARLYPHASE1":
+        return "EARLY_PHASE1"
+    if p.isdigit():
+        p = f"PHASE{p}"
+    if p not in VALID_PHASES:
+        raise ValueError(f"Unknown trial phase: {phase!r}")
+    return p
 
 
 class ClinicalTrialsProvider(BaseProvider):
@@ -70,6 +92,22 @@ class ClinicalTrialsProvider(BaseProvider):
             eligibility_info = protocol.get("eligibilityModule", {})
 
             phases = cast(List[str], design_info.get("phases", []))
+            sponsor_info = protocol.get("sponsorCollaboratorsModule", {})
+            locations_info = protocol.get("contactsLocationsModule", {})
+
+            enrollment_raw = design_info.get("enrollmentInfo", {}).get("count")
+            try:
+                enrollment = int(enrollment_raw) if enrollment_raw is not None else None
+            except (TypeError, ValueError):
+                enrollment = None
+
+            # "City, State, Country" for each site, skipping blanks and duplicates
+            locations: List[str] = []
+            for site in locations_info.get("locations", []):
+                parts = [site.get(k) for k in ("city", "state", "country") if site.get(k)]
+                label = ", ".join(str(x) for x in parts)
+                if label and label not in locations:
+                    locations.append(label)
 
             # Filter for meaningful interventions (Drugs and Biologicals)
             relevant_types = ["DRUG", "BIOLOGICAL", "COMBINATION_PRODUCT"]
@@ -88,9 +126,14 @@ class ClinicalTrialsProvider(BaseProvider):
                 recruiting=status_info.get("overallStatus") in ["RECRUITING", "AVAILABLE"],
                 url=f"https://clinicaltrials.gov/study/{nct_id}",
                 phase=phases,
-                location=[],
+                location=locations,
                 eligibility=eligibility_info.get("eligibilityCriteria"),
                 interventions=interventions,
+                study_type=design_info.get("studyType"),
+                enrollment=enrollment,
+                sponsor=sponsor_info.get("leadSponsor", {}).get("name"),
+                start_date=status_info.get("startDateStruct", {}).get("date"),
+                completion_date=status_info.get("primaryCompletionDateStruct", {}).get("date"),
             )
         except Exception:
             return ClinicalTrial(
@@ -105,6 +148,11 @@ class ClinicalTrialsProvider(BaseProvider):
                 location=[],
                 eligibility=None,
                 interventions=[],
+                study_type=None,
+                enrollment=None,
+                sponsor=None,
+                start_date=None,
+                completion_date=None,
             )
 
     async def health_check_async(self) -> bool:
@@ -138,16 +186,37 @@ class ClinicalTrialsProvider(BaseProvider):
     def capabilities(self) -> List[str]:
         return ["trials", "studies", "recruitment"]
 
+    def _build_params(self, query: str, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Build ClinicalTrials.gov v2 query parameters.
+
+        Supported filters:
+            limit: max results (default 10)
+            recruiting: only trials that are currently recruiting
+            status: one or more overall statuses, e.g. "COMPLETED" or ["RECRUITING", "ACTIVE_NOT_RECRUITING"]
+            phase: one or more phases, e.g. 3, "phase 2" or ["PHASE2", "PHASE3"]
+        """
+        params: Dict[str, Any] = {"pageSize": kwargs.get("limit", 10), "query.term": query}
+
+        statuses = [st.upper() for st in _as_list(kwargs.get("status"))]
+        if kwargs.get("recruiting") and "RECRUITING" not in statuses:
+            statuses.append("RECRUITING")
+        if statuses:
+            params["filter.overallStatus"] = ",".join(statuses)
+
+        phase_arg = kwargs.get("phase")
+        if isinstance(phase_arg, int):
+            phase_arg = str(phase_arg)
+        phases = [_normalize_phase(ph) for ph in _as_list(phase_arg)]
+        if phases:
+            params["filter.advanced"] = "AREA[Phase](" + " OR ".join(phases) + ")"
+
+        return params
+
     def search_sync(self, query: str, **kwargs: Any) -> List[ClinicalTrial]:
         from ..validators import sanitize_query
 
-        query = sanitize_query(query)
-        limit = kwargs.get("limit", 10)
-        recruiting = kwargs.get("recruiting", False)
-
-        params = {"pageSize": limit, "query.term": query}
-        if recruiting:
-            params["filter.overallStatus"] = "RECRUITING"
+        params = self._build_params(sanitize_query(query), **kwargs)
 
         try:
             url = f"{self.base_url}?{urlencode(params)}"
@@ -173,13 +242,7 @@ class ClinicalTrialsProvider(BaseProvider):
     async def search(self, query: str, **kwargs: Any) -> List[ClinicalTrial]:
         from ..validators import sanitize_query
 
-        query = sanitize_query(query)
-        limit = kwargs.get("limit", 10)
-        recruiting = kwargs.get("recruiting", False)
-
-        params = {"pageSize": limit, "query.term": query}
-        if recruiting:
-            params["filter.overallStatus"] = "RECRUITING"
+        params = self._build_params(sanitize_query(query), **kwargs)
 
         try:
             url = f"{self.base_url}?{urlencode(params)}"
